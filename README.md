@@ -1,8 +1,7 @@
 # Topanga Interface
 
-Monorepo with:
+Repo with:
 - `frontend/` — Next.js web UI + API routes (Vercel)
-- `backend/` — legacy FastAPI (can be removed after migration)
 
 ## Frontend (Next.js)
 ```bash
