@@ -1,6 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+function getSessionId() {
+  if (typeof window === "undefined") return null;
+  let id = localStorage.getItem("topanga_session_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("topanga_session_id", id);
+  }
+  return id;
+}
 
 export default function Home() {
   const [messages, setMessages] = useState([
@@ -8,6 +20,11 @@ export default function Home() {
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+
+  useEffect(() => {
+    setSessionId(getSessionId());
+  }, []);
 
   async function sendMessage(e) {
     e.preventDefault();
@@ -19,10 +36,10 @@ export default function Home() {
     setSending(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.text })
+        body: JSON.stringify({ message: userMsg.text, session_id: sessionId })
       });
       const data = await res.json();
       setMessages((m) => [...m, { role: "assistant", text: data.reply || "(no reply)" }]);
