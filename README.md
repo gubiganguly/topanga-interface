@@ -29,3 +29,4 @@ Open http://localhost:3000 and chat.
 - Backend calls OpenClaw Gateway `/v1/chat/completions`.
 - Streaming replies are enabled via `/chat/stream` (SSE).
 - Uses `OPENCLAW_GATEWAY_TOKEN` from `~/.openclaw/openclaw.json`.
+- Forced session key via `OPENCLAW_SESSION_KEY` (default: `agent:main:main`).

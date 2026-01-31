@@ -12,6 +12,8 @@ load_dotenv()
 GATEWAY_URL = os.getenv("OPENCLAW_GATEWAY_URL", "http://127.0.0.1:18789")
 GATEWAY_TOKEN = os.getenv("OPENCLAW_GATEWAY_TOKEN")
 AGENT_ID = os.getenv("OPENCLAW_AGENT_ID", "main")
+# Option B: force a specific OpenClaw session key
+SESSION_KEY = os.getenv("OPENCLAW_SESSION_KEY", "agent:main:main")
 
 app = FastAPI(title="Topanga Backend")
 
@@ -36,6 +38,7 @@ def _gateway_headers():
         "Authorization": f"Bearer {GATEWAY_TOKEN}",
         "Content-Type": "application/json",
         "x-openclaw-agent-id": AGENT_ID,
+        "x-openclaw-session-key": SESSION_KEY,
     }
 
 
@@ -45,8 +48,6 @@ async def chat(req: ChatRequest):
         "model": "openclaw",
         "messages": [{"role": "user", "content": req.message}],
     }
-    if req.session_id:
-        payload["user"] = req.session_id
 
     url = f"{GATEWAY_URL}/v1/chat/completions"
 
@@ -75,8 +76,6 @@ async def chat_stream(req: ChatRequest):
         "stream": True,
         "messages": [{"role": "user", "content": req.message}],
     }
-    if req.session_id:
-        payload["user"] = req.session_id
 
     url = f"{GATEWAY_URL}/v1/chat/completions"
 
@@ -101,7 +100,6 @@ async def chat_stream(req: ChatRequest):
                             yield "data: [DONE]\n\n"
                             return
 
-                        # Pass through the JSON payload
                         yield f"data: {data}\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
