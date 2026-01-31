@@ -1,6 +1,8 @@
 import os
+import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import httpx
 from dotenv import load_dotenv
@@ -27,11 +29,18 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
 
 
-@app.post("/chat")
-async def chat(req: ChatRequest):
+def _gateway_headers():
     if not GATEWAY_TOKEN:
         raise HTTPException(status_code=500, detail="OPENCLAW_GATEWAY_TOKEN is not set")
+    return {
+        "Authorization": f"Bearer {GATEWAY_TOKEN}",
+        "Content-Type": "application/json",
+        "x-openclaw-agent-id": AGENT_ID,
+    }
 
+
+@app.post("/chat")
+async def chat(req: ChatRequest):
     payload = {
         "model": "openclaw",
         "messages": [{"role": "user", "content": req.message}],
@@ -39,17 +48,11 @@ async def chat(req: ChatRequest):
     if req.session_id:
         payload["user"] = req.session_id
 
-    headers = {
-        "Authorization": f"Bearer {GATEWAY_TOKEN}",
-        "Content-Type": "application/json",
-        "x-openclaw-agent-id": AGENT_ID,
-    }
-
     url = f"{GATEWAY_URL}/v1/chat/completions"
 
     async with httpx.AsyncClient(timeout=60) as client:
         try:
-            res = await client.post(url, json=payload, headers=headers)
+            res = await client.post(url, json=payload, headers=_gateway_headers())
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"Gateway error: {e}")
 
@@ -63,3 +66,44 @@ async def chat(req: ChatRequest):
         reply = "(no reply)"
 
     return {"reply": reply}
+
+
+@app.post("/chat/stream")
+async def chat_stream(req: ChatRequest):
+    payload = {
+        "model": "openclaw",
+        "stream": True,
+        "messages": [{"role": "user", "content": req.message}],
+    }
+    if req.session_id:
+        payload["user"] = req.session_id
+
+    url = f"{GATEWAY_URL}/v1/chat/completions"
+
+    async def event_generator():
+        async with httpx.AsyncClient(timeout=None) as client:
+            try:
+                async with client.stream("POST", url, json=payload, headers=_gateway_headers()) as resp:
+                    if resp.status_code != 200:
+                        body = await resp.aread()
+                        yield f"data: {json.dumps({'error': body.decode('utf-8', 'ignore')})}\n\n"
+                        return
+
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        if line.startswith("data: "):
+                            data = line[6:]
+                        else:
+                            data = line
+
+                        if data.strip() == "[DONE]":
+                            yield "data: [DONE]\n\n"
+                            return
+
+                        # Pass through the JSON payload
+                        yield f"data: {data}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
