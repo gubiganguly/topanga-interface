@@ -7,7 +7,7 @@ export async function POST(req) {
   const sessionKey = process.env.OPENCLAW_SESSION_KEY || "agent:main:main";
 
   if (!token) {
-    return Response.json({ error: "OPENCLAW_GATEWAY_TOKEN not set" }, { status: 500 });
+    return new Response("OPENCLAW_GATEWAY_TOKEN not set", { status: 500 });
   }
 
   const res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
@@ -20,16 +20,21 @@ export async function POST(req) {
     },
     body: JSON.stringify({
       model: "openclaw",
+      stream: true,
       messages: [{ role: "user", content: message }]
     })
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    return Response.json({ error: text }, { status: res.status });
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => "");
+    return new Response(text || "Gateway error", { status: res.status || 500 });
   }
 
-  const data = await res.json();
-  const reply = data?.choices?.[0]?.message?.content || "(no reply)";
-  return Response.json({ reply });
+  return new Response(res.body, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive"
+    }
+  });
 }

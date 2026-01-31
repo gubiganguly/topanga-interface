@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = "";
 
 function getSessionId() {
   if (typeof window === "undefined") return null;
@@ -41,7 +41,7 @@ export default function Home() {
     setSending(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/chat/stream`, {
+      const res = await fetch(`/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMsg.text, session_id: sessionId })
