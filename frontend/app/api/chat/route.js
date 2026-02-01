@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req) {
   const { message } = await req.json();
 
@@ -27,6 +30,7 @@ export async function POST(req) {
     });
   } catch (err) {
     const msg = err?.message || "Gateway fetch failed";
+    console.error("Gateway fetch failed", err);
     return Response.json({ error: msg }, { status: 500 });
   }
 
