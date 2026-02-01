@@ -8,6 +8,8 @@ export async function POST(req) {
   const token = process.env.OPENCLAW_GATEWAY_TOKEN;
   const agentId = process.env.OPENCLAW_AGENT_ID || "main";
   const sessionKey = process.env.OPENCLAW_SESSION_KEY || "agent:main:main";
+  const cfAccessId = process.env.CF_ACCESS_CLIENT_ID;
+  const cfAccessSecret = process.env.CF_ACCESS_CLIENT_SECRET;
 
   if (!token) {
     return new Response("OPENCLAW_GATEWAY_TOKEN not set", { status: 500 });
@@ -15,14 +17,20 @@ export async function POST(req) {
 
   let res;
   try {
+    const headers = {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "x-openclaw-agent-id": agentId,
+      "x-openclaw-session-key": sessionKey
+    };
+    if (cfAccessId && cfAccessSecret) {
+      headers["CF-Access-Client-Id"] = cfAccessId;
+      headers["CF-Access-Client-Secret"] = cfAccessSecret;
+    }
+
     res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "x-openclaw-agent-id": agentId,
-        "x-openclaw-session-key": sessionKey
-      },
+      headers,
       body: JSON.stringify({
         model: "openclaw",
         stream: true,
