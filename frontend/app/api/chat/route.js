@@ -10,23 +10,29 @@ export async function POST(req) {
     return Response.json({ error: "OPENCLAW_GATEWAY_TOKEN not set" }, { status: 500 });
   }
 
-  const res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "x-openclaw-agent-id": agentId,
-      "x-openclaw-session-key": sessionKey
-    },
-    body: JSON.stringify({
-      model: "openclaw",
-      messages: [{ role: "user", content: message }]
-    })
-  });
+  let res;
+  try {
+    res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "x-openclaw-agent-id": agentId,
+        "x-openclaw-session-key": sessionKey
+      },
+      body: JSON.stringify({
+        model: "openclaw",
+        messages: [{ role: "user", content: message }]
+      })
+    });
+  } catch (err) {
+    const msg = err?.message || "Gateway fetch failed";
+    return Response.json({ error: msg }, { status: 500 });
+  }
 
   if (!res.ok) {
-    const text = await res.text();
-    return Response.json({ error: text }, { status: res.status });
+    const text = await res.text().catch(() => "");
+    return Response.json({ error: text || `Gateway error (${res.status})` }, { status: res.status });
   }
 
   const data = await res.json();
