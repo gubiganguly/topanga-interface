@@ -47,6 +47,11 @@ export default function Home() {
         body: JSON.stringify({ message: userMsg.text, session_id: sessionId })
       });
 
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || `Request failed (${res.status})`);
+      }
+
       if (!res.body) throw new Error("No stream");
       const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -91,7 +96,8 @@ export default function Home() {
     } catch (err) {
       setMessages((m) => {
         const copy = [...m];
-        copy[copy.length - 1] = { role: "assistant", text: "Error talking to backend." };
+        const msg = err?.message || "Error talking to backend.";
+        copy[copy.length - 1] = { role: "assistant", text: msg };
         return copy;
       });
     } finally {
