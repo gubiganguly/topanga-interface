@@ -48,6 +48,12 @@ export async function POST(req) {
     return new Response(text || `Gateway error (${res.status || 500})`, { status: res.status || 500 });
   }
 
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("text/event-stream")) {
+    const text = await res.text().catch(() => "");
+    return new Response(text || "Gateway returned non-stream response", { status: 502 });
+  }
+
   return new Response(res.body, {
     headers: {
       "Content-Type": "text/event-stream",

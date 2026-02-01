@@ -47,7 +47,19 @@ export async function POST(req) {
     return Response.json({ error: text || `Gateway error (${res.status})` }, { status: res.status });
   }
 
-  const data = await res.json();
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text().catch(() => "");
+    return Response.json({ error: text || "Gateway returned non-JSON" }, { status: 502 });
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    const text = await res.text().catch(() => "");
+    return Response.json({ error: text || "Invalid JSON from gateway" }, { status: 502 });
+  }
   const reply = data?.choices?.[0]?.message?.content || "(no reply)";
   return Response.json({ reply });
 }
