@@ -16,11 +16,13 @@ function getSessionId() {
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    { role: "assistant", text: "Topanga online. Ask me anything." }
+    { role: "assistant", text: "Topanga online. Ask me anything.", session_id: "agent:main:main" }
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState(null);
+  const [sessionFilter, setSessionFilter] = useState("all");
+  const [sessions, setSessions] = useState([]);
   const endRef = useRef(null);
 
   // admin panel removed
@@ -36,15 +38,18 @@ export default function Home() {
         const data = await fetch(`/api/chat/history`).then(r => r.ok ? r.json() : null);
 
         const combined = [];
+        const sessionSet = new Set();
         if (Array.isArray(data?.messages)) {
           for (const m of data.messages) {
-            combined.push({ role: m.role, text: m.content, created_at: m.created_at });
+            combined.push({ role: m.role, text: m.content, created_at: m.created_at, session_id: m.session_id });
+            if (m.session_id) sessionSet.add(m.session_id);
           }
         }
 
         if (combined.length) {
           combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          setMessages(combined.map(m => ({ role: m.role, text: m.text })));
+          setMessages(combined.map(m => ({ role: m.role, text: m.text, session_id: m.session_id })));
+          setSessions(Array.from(sessionSet).sort());
         }
       } catch {}
     })();
@@ -54,12 +59,16 @@ export default function Home() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const visibleMessages = sessionFilter === "all"
+    ? messages
+    : messages.filter(m => m.session_id === sessionFilter);
+
   async function sendMessage(e) {
     e.preventDefault();
     if (!input.trim() || sending) return;
 
-    const userMsg = { role: "user", text: input.trim() };
-    setMessages((m) => [...m, userMsg, { role: "assistant", text: "" }]);
+    const userMsg = { role: "user", text: input.trim(), session_id: sessionId };
+    setMessages((m) => [...m, userMsg, { role: "assistant", text: "", session_id: sessionId }]);
     setInput("");
     setSending(true);
 
@@ -106,7 +115,8 @@ export default function Home() {
                 const copy = [...m];
                 copy[copy.length - 1] = {
                   role: "assistant",
-                  text: (copy[copy.length - 1].text || "") + delta
+                  text: (copy[copy.length - 1].text || "") + delta,
+                  session_id: copy[copy.length - 1].session_id || sessionId
                 };
                 return copy;
               });
@@ -120,7 +130,7 @@ export default function Home() {
       setMessages((m) => {
         const copy = [...m];
         const msg = err?.message || "Error talking to backend.";
-        copy[copy.length - 1] = { role: "assistant", text: msg };
+        copy[copy.length - 1] = { role: "assistant", text: msg, session_id: sessionId };
         return copy;
       });
     } finally {
@@ -137,14 +147,30 @@ export default function Home() {
             <div style={styles.title}>Topanga</div>
             <div style={styles.subtitle}>Your snarky but warm AI</div>
           </div>
-          <div style={styles.statusDot} title={sending ? "Thinking" : "Online"} />
+          <div style={styles.headerRight}>
+            <select
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value)}
+              style={styles.select}
+              title="Filter by session"
+            >
+              <option value="all">All sessions</option>
+              {sessions.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <div style={styles.statusDot} title={sending ? "Thinking" : "Online"} />
+          </div>
         </header>
 
         <main style={styles.chat}>
-          {messages.map((m, i) => (
+          {visibleMessages.map((m, i) => (
             <div key={i} style={m.role === "user" ? styles.rowUser : styles.rowBot}>
               <div style={m.role === "user" ? styles.bubbleUser : styles.bubbleBot}>
-                {m.text || (m.role === "assistant" && sending && i === messages.length - 1 ? "…" : "")}
+                <div style={styles.metaRow}>
+                  <span style={styles.badge}>{m.session_id || "unknown"}</span>
+                </div>
+                {m.text || (m.role === "assistant" && sending && i === visibleMessages.length - 1 ? "…" : "")}
               </div>
             </div>
           ))}
@@ -198,6 +224,11 @@ const styles = {
     borderBottom: "1px solid #eee",
     background: "linear-gradient(90deg, #ffffff, #f3f6ff)"
   },
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12
+  },
   title: { fontSize: 22, fontWeight: 700 },
   subtitle: { fontSize: 12, color: "#666" },
   statusDot: {
@@ -206,6 +237,25 @@ const styles = {
     borderRadius: 999,
     background: "#19c37d",
     boxShadow: "0 0 0 4px rgba(25,195,125,0.15)"
+  },
+  select: {
+    padding: "6px 10px",
+    borderRadius: 8,
+    border: "1px solid #ddd",
+    background: "#fff",
+    fontSize: 12
+  },
+  metaRow: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginBottom: 6
+  },
+  badge: {
+    fontSize: 10,
+    padding: "2px 6px",
+    borderRadius: 999,
+    background: "#e5e7eb",
+    color: "#111827"
   },
   chat: {
     flex: 1,
