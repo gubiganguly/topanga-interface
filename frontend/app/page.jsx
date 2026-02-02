@@ -146,7 +146,9 @@ export default function Home() {
         {/* Chat Area */}
         <div className="chat-area">
           <AnimatePresence>
-            {messages.map((m, i) => (
+            {messages.map((m, i) => {
+              if (m.role === "assistant" && !m.content) return null; // Hide empty bot placeholder (thinking bubble shows instead)
+              return (
               <motion.div 
                 key={i}
                 initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -157,20 +159,22 @@ export default function Home() {
                 <div className={`message-bubble ${m.role === "user" ? "user-bubble" : "bot-bubble"}`}>
                   <div className="message-content prose">
                     {m.role === "assistant" ? (
-                      <ReactMarkdown>{m.content || "..."}</ReactMarkdown>
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
                     ) : (
                       m.content
                     )}
                   </div>
-                  <div className="timestamp">
-                    {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </div>
+                  {m.content && (
+                    <div className="timestamp">
+                      {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
           
-          {sending && messages[messages.length-1]?.content === "" && (
+          {sending && (!messages.length || messages[messages.length-1]?.content === "") && (
              <motion.div 
                initial={{ opacity: 0 }} 
                animate={{ opacity: 1 }}
