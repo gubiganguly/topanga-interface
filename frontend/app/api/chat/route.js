@@ -1,8 +1,17 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { createClient } from "@supabase/supabase-js";
+
+function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL or SUPABASE_SECRET_KEY not set");
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
 export async function POST(req) {
-  const { message } = await req.json();
+  const { message, session_id } = await req.json();
 
   const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || "http://127.0.0.1:18789";
   const token = process.env.OPENCLAW_GATEWAY_TOKEN;
@@ -61,5 +70,17 @@ export async function POST(req) {
     return Response.json({ error: text || "Invalid JSON from gateway" }, { status: 502 });
   }
   const reply = data?.choices?.[0]?.message?.content || "(no reply)";
+
+  // persist
+  try {
+    if (session_id) {
+      const supabase = getSupabase();
+      await supabase.from("chat_messages").insert([
+        { session_id, role: "user", content: message },
+        { session_id, role: "assistant", content: reply }
+      ]);
+    }
+  } catch {}
+
   return Response.json({ reply });
 }

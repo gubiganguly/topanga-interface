@@ -30,6 +30,20 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!sessionId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data?.messages) && data.messages.length) {
+          setMessages(data.messages.map(m => ({ role: m.role, text: m.content })));
+        }
+      } catch {}
+    })();
+  }, [sessionId]);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
