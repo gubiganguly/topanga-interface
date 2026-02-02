@@ -52,14 +52,20 @@ export async function POST(req) {
 
     const prompt = `Task: ${instruction}\nReturn a unified diff patch.`;
 
+    const gatewayHeaders = {
+      "Authorization": `Bearer ${gatewayToken}`,
+      "Content-Type": "application/json",
+      "x-openclaw-agent-id": agentId,
+      "x-openclaw-session-key": sessionKey
+    };
+    if (cfAccessId && cfAccessSecret) {
+      gatewayHeaders["CF-Access-Client-Id"] = cfAccessId;
+      gatewayHeaders["CF-Access-Client-Secret"] = cfAccessSecret;
+    }
+
     const res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${gatewayToken}`,
-        "Content-Type": "application/json",
-        "x-openclaw-agent-id": agentId,
-        "x-openclaw-session-key": sessionKey
-      },
+      headers: gatewayHeaders,
       body: JSON.stringify({
         model: "openclaw",
         messages: [
