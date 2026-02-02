@@ -23,14 +23,25 @@ export default function Home() {
 
   // admin panel removed
 
+  const [debugInfo, setDebugInfo] = useState({});
+
   useEffect(() => {
     setSessionId(getSessionId());
   }, []);
 
   async function refreshHistory() {
     setIsRefreshing(true);
+    const sid = sessionId || "agent:main:main";
     try {
-      const data = await fetch(`/api/chat/history`, { cache: "no-store" }).then(r => r.ok ? r.json() : null);
+      const res = await fetch(`/api/chat/history`, { cache: "no-store" });
+      const data = res.ok ? await res.json() : null;
+      
+      setDebugInfo({
+        status: res.status,
+        count: data?.messages?.length || 0,
+        lastFetch: new Date().toLocaleTimeString(),
+        sessionId: sid
+      });
 
       const combined = [];
       const sessionSet = new Set();
@@ -206,12 +217,27 @@ export default function Home() {
         </form>
 
         {/* admin panel removed */}
+        
+        <div style={styles.debug}>
+          <details>
+            <summary>Debug Info</summary>
+            <pre>{JSON.stringify({ ...debugInfo, stateCount: messages.length }, null, 2)}</pre>
+          </details>
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
+  debug: {
+    padding: 10,
+    fontSize: 10,
+    background: "#eee",
+    borderTop: "1px solid #ddd",
+    maxHeight: 100,
+    overflow: "auto"
+  },
   page: {
     minHeight: "100vh",
     display: "flex",
