@@ -212,9 +212,39 @@ export default function Home() {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Compress image before setting state
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result); // Base64 data URL
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Resize if too big (max 1024px)
+          const MAX_SIZE = 1024;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG 0.7
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setSelectedImage(dataUrl);
+        };
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     }
