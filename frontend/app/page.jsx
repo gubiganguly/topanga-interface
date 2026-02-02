@@ -212,15 +212,41 @@ export default function Home() {
     }
   }
 
+  async function syncGateway() {
+    try {
+      const res = await fetch("/api/chat/sync");
+      const data = await res.json();
+      if (data.synced > 0) {
+        refreshHistory();
+        // alert(`Synced ${data.synced} messages from Terminal!`);
+      }
+    } catch (err) {
+      console.error("Sync failed", err);
+    }
+  }
+
+  // Auto-sync on mount
+  useEffect(() => {
+    syncGateway();
+  }, []);
+
   return (
     <div style={styles.page}>
       <div style={styles.shell}>
         <header style={styles.header}>
           <div>
-            <div style={styles.title}>Topanga <span style={{fontSize: 10, background: "#000", color: "#fff", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle"}}>v2.1</span></div>
+            <div style={styles.title}>Topanga <span style={{fontSize: 10, background: "#000", color: "#fff", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle"}}>v2.2</span></div>
             <div style={styles.subtitle}>Your snarky but warm AI</div>
           </div>
           <div style={styles.headerRight}>
+            <button
+              type="button"
+              onClick={() => syncGateway()}
+              style={{...styles.refreshButton, background: "#10b981", borderColor: "#10b981", marginRight: 5}}
+              title="Sync with Terminal"
+            >
+              Sync
+            </button>
             <button
               type="button"
               onClick={() => refreshHistory()}
