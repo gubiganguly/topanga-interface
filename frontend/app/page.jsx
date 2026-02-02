@@ -214,7 +214,7 @@ export default function Home() {
       <div style={styles.shell}>
         <header style={styles.header}>
           <div>
-            <div style={styles.title}>Topanga</div>
+            <div style={styles.title}>Topanga <span style={{fontSize: 10, background: "#000", color: "#fff", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle"}}>v2.1</span></div>
             <div style={styles.subtitle}>Your snarky but warm AI</div>
           </div>
           <div style={styles.headerRight}>
