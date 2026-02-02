@@ -75,9 +75,10 @@ export default function Home() {
       setDebugInfo({
         status: res.status,
         count: serverMessages.length,
-        pendingCount: prev => prev.filter(m => m.pending).length, // approximate
+        pendingCount: prev => prev.filter(m => m.pending).length,
         lastFetch: new Date().toLocaleTimeString(),
-        sessionId: sid
+        sessionId: sid,
+        keyRole: data?.key_role || "unknown"
       });
 
     } catch (err) {

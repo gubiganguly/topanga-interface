@@ -35,6 +35,15 @@ export async function GET(req) {
     const debug = searchParams.get("debug") === "1";
     let sessions = [];
     let supabaseHost = undefined;
+    let keyRole = "unknown";
+    
+    // Decode JWT (hacky but works for Supabase keys) to check role
+    try {
+      const token = process.env.SUPABASE_SECRET_KEY || "";
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      keyRole = payload.role;
+    } catch {}
+
     if (debug) {
       const { data: sdata } = await supabase
         .from("chat_messages")
@@ -47,7 +56,14 @@ export async function GET(req) {
       } catch {}
     }
 
-    return new Response(JSON.stringify({ session_id: sessionId, count: (data || []).length, messages: data || [], sessions, supabase_host: supabaseHost }), {
+    return new Response(JSON.stringify({ 
+      session_id: sessionId, 
+      count: (data || []).length, 
+      messages: data || [], 
+      sessions, 
+      supabase_host: supabaseHost,
+      key_role: keyRole 
+    }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
