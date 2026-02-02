@@ -11,7 +11,9 @@ function getSupabase() {
 }
 
 export async function POST(req) {
-  const { message, session_id } = await req.json();
+  const body = await req.json();
+  const message = body.message;
+  const session_id = body.session_id || "agent:main:main";
 
   // 1. Insert User Message Immediately (Blocking)
   // This ensures the user message is in DB before the stream even starts.

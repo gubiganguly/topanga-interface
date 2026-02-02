@@ -72,8 +72,9 @@ export default function Home() {
     e.preventDefault();
     if (!input.trim() || sending) return;
 
-    const userMsg = { role: "user", text: input.trim(), session_id: sessionId };
-    setMessages((m) => [...m, userMsg, { role: "assistant", text: "", session_id: sessionId }]);
+    const currentSessionId = sessionId || "agent:main:main";
+    const userMsg = { role: "user", text: input.trim(), session_id: currentSessionId };
+    setMessages((m) => [...m, userMsg, { role: "assistant", text: "", session_id: currentSessionId }]);
     setInput("");
     setSending(true);
 
@@ -81,7 +82,7 @@ export default function Home() {
       const res = await fetch(`/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.text, session_id: sessionId })
+        body: JSON.stringify({ message: userMsg.text, session_id: currentSessionId })
       });
 
       if (!res.ok) {
