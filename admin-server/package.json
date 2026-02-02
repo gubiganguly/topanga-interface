@@ -1,0 +1,11 @@
+{
+  "name": "topanga-admin-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local admin API for safe self-editing",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
