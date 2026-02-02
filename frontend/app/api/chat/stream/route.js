@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
-  const { message, session_id } = await req.json();
+  const { message, session_id, image } = await req.json();
   const targetSession = session_id || "agent:main:main";
 
   const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || "http://127.0.0.1:18789";
@@ -29,13 +29,24 @@ export async function POST(req) {
       headers["CF-Access-Client-Secret"] = cfAccessSecret;
     }
 
+    // Construct content: Text only OR Multimodal array
+    let contentPayload;
+    if (image) {
+      contentPayload = [
+        { type: "text", text: message || " " }, // Ensure some text
+        { type: "image_url", image_url: { url: image } }
+      ];
+    } else {
+      contentPayload = message;
+    }
+
     const res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
       method: "POST",
       headers,
       body: JSON.stringify({
         model: "openclaw",
         stream: true,
-        messages: [{ role: "user", content: message }]
+        messages: [{ role: "user", content: contentPayload }]
       })
     });
 

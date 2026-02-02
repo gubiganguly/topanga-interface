@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, RefreshCw, Terminal, Sparkles, Mic, MicOff } from "lucide-react";
+import { Send, RefreshCw, Terminal, Sparkles, Mic, MicOff, Paperclip, X } from "lucide-react";
 import "./globals.css";
 
 function getSessionId() {
@@ -18,7 +18,9 @@ export default function Home() {
   const [sessionId, setSessionId] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
   const endRef = useRef(null);
   const touchStart = useRef(0);
 
@@ -100,24 +102,37 @@ export default function Home() {
 
   async function sendMessage(e) {
     e.preventDefault();
-    if (!input.trim() || sending) return;
+    if ((!input.trim() && !selectedImage) || sending) return;
 
     const currentSessionId = sessionId || "agent:main:main";
     const userText = input.trim();
+    const imagePayload = selectedImage;
     
     // Optimistic UI
-    const tempUser = { role: "user", content: userText, created_at: new Date().toISOString(), pending: true };
+    const tempUser = { 
+      role: "user", 
+      content: userText, 
+      image: imagePayload, 
+      created_at: new Date().toISOString(), 
+      pending: true 
+    };
     const tempBot = { role: "assistant", content: "", created_at: new Date().toISOString(), pending: true };
     
     setMessages(prev => [...prev, tempUser, tempBot]);
     setInput("");
+    setSelectedImage(null); // Clear image immediately
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setSending(true);
 
     try {
       const res = await fetch(`/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText, session_id: currentSessionId })
+        body: JSON.stringify({ 
+          message: userText, 
+          image: imagePayload,
+          session_id: currentSessionId 
+        })
       });
 
       if (!res.ok) throw new Error("Request failed");
@@ -194,6 +209,22 @@ export default function Home() {
     }
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result); // Base64 data URL
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   return (
     <div className="page-container">
       <div className="glass-shell">
@@ -244,6 +275,11 @@ export default function Home() {
               >
                 <div className={`message-bubble ${m.role === "user" ? "user-bubble" : "bot-bubble"} ${isStreaming ? "pulsating-active" : ""}`}>
                   <div className="message-content prose">
+                    {m.image && (
+                      <div className="message-image-container">
+                        <img src={m.image} alt="Uploaded" className="message-image" />
+                      </div>
+                    )}
                     {m.role === "assistant" ? (
                       <ReactMarkdown>{m.content}</ReactMarkdown>
                     ) : (
@@ -279,11 +315,38 @@ export default function Home() {
 
         {/* Input Area */}
         <form onSubmit={sendMessage} className="input-area">
+          {selectedImage && (
+            <div className="preview-container">
+              <div className="preview-wrapper">
+                <img src={selectedImage} alt="Preview" className="preview-image" />
+                <button type="button" onClick={removeImage} className="remove-button">
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )}
           <div className="input-wrapper">
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              style={{ display: 'none' }} 
+            />
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              className={`mic-button ${selectedImage ? "active" : ""}`}
+              style={{ left: 8 }}
+              title="Add Image"
+            >
+              <Paperclip size={18} />
+            </button>
             <button 
               type="button" 
               onClick={toggleListening}
               className={`mic-button ${isListening ? "listening" : ""}`}
+              style={{ left: 44 }}
               title="Voice Input"
             >
               {isListening ? <MicOff size={18} /> : <Mic size={18} />}
@@ -297,7 +360,7 @@ export default function Home() {
               rows={1}
               enterKeyHint="send"
             />
-            <button type="submit" disabled={sending || !input.trim()} className="send-button" tabIndex="-1">
+            <button type="submit" disabled={(sending || (!input.trim() && !selectedImage))} className="send-button" tabIndex="-1">
               <Send size={18} />
             </button>
           </div>
@@ -439,7 +502,7 @@ export default function Home() {
           background: rgba(0, 0, 0, 0.2);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 16px;
-          padding: 14px 50px 14px 44px; /* Added left padding for mic */
+          padding: 14px 50px 14px 80px; /* Increased for 2 icons */
           color: #fff;
           font-size: 16px;
           outline: none;
@@ -452,7 +515,6 @@ export default function Home() {
         }
         .mic-button {
           position: absolute;
-          left: 8px;
           bottom: 8px;
           background: transparent;
           border: none;
@@ -465,6 +527,42 @@ export default function Home() {
           justify-content: center;
           cursor: pointer;
           transition: all 0.2s;
+        }
+        .mic-button.active { color: #8b5cf6; }
+        .preview-container {
+          padding: 0 0 10px 20px;
+        }
+        .preview-wrapper {
+          position: relative;
+          display: inline-block;
+        }
+        .preview-image {
+          height: 60px;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+        .remove-button {
+          position: absolute;
+          top: -6px;
+          right: -6px;
+          background: #ef4444;
+          color: white;
+          border: none;
+          border-radius: 50%;
+          width: 18px;
+          height: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+        .message-image-container {
+          margin-bottom: 10px;
+        }
+        .message-image {
+          max-width: 100%;
+          max-height: 300px;
+          border-radius: 12px;
         }
         .mic-button:hover {
           color: #fff;
