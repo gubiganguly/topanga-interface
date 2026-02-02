@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, RefreshCw, Terminal, Sparkles, Mic, MicOff, Paperclip, X } from "lucide-react";
+import { Send, RefreshCw, Terminal, Sparkles, Mic, MicOff, Paperclip, X, Wifi, WifiOff, AlertCircle } from "lucide-react";
 import "./globals.css";
 
 function getSessionId() {
@@ -19,6 +19,17 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  
+  // Connection status state
+  const [connectionStatus, setConnectionStatus] = useState({
+    connected: null, // null = checking, true = connected, false = disconnected
+    error: null,
+    details: null,
+    gatewayUrl: null,
+    lastChecked: null
+  });
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
   const endRef = useRef(null);
@@ -26,6 +37,38 @@ export default function Home() {
 
   useEffect(() => {
     setSessionId(getSessionId());
+  }, []);
+
+  // Health check for gateway connection
+  async function checkHealth() {
+    try {
+      const res = await fetch("/api/health", { cache: "no-store" });
+      const data = await res.json();
+      setConnectionStatus({
+        connected: data.connected,
+        error: data.error || null,
+        details: data.details || null,
+        gatewayUrl: data.gatewayUrl || null,
+        hasCfCredentials: data.hasCfCredentials,
+        lastChecked: new Date().toISOString()
+      });
+    } catch (err) {
+      setConnectionStatus({
+        connected: false,
+        error: "Health Check Failed",
+        details: err.message,
+        gatewayUrl: null,
+        lastChecked: new Date().toISOString()
+      });
+    }
+  }
+
+  useEffect(() => {
+    // Check health on mount
+    checkHealth();
+    // Re-check every 30 seconds
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -267,7 +310,39 @@ export default function Home() {
             </div>
             <div>
               <h1 className="title">Topanga</h1>
-              <div className="subtitle">Online • v2.6</div>
+              <div className="subtitle">
+                <button 
+                  onClick={() => {
+                    if (connectionStatus.connected === false) {
+                      setShowErrorModal(true);
+                    } else {
+                      checkHealth();
+                    }
+                  }}
+                  className={`status-indicator ${
+                    connectionStatus.connected === null ? 'checking' : 
+                    connectionStatus.connected ? 'connected' : 'disconnected'
+                  }`}
+                  title={connectionStatus.connected === false ? "Click for details" : "Gateway status"}
+                >
+                  {connectionStatus.connected === null ? (
+                    <>
+                      <span className="status-dot checking-dot"></span>
+                      Checking...
+                    </>
+                  ) : connectionStatus.connected ? (
+                    <>
+                      <Wifi size={12} />
+                      Connected
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff size={12} />
+                      Disconnected
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
           <div className="header-right">
@@ -397,6 +472,69 @@ export default function Home() {
         </form>
       </div>
 
+      {/* Error Modal */}
+      <AnimatePresence>
+        {showErrorModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="modal-overlay"
+            onClick={() => setShowErrorModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <AlertCircle size={24} color="#ef4444" />
+                <h2>Connection Error</h2>
+                <button onClick={() => setShowErrorModal(false)} className="modal-close">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="modal-body">
+                <div className="error-type">
+                  <strong>{connectionStatus.error || "Unknown Error"}</strong>
+                </div>
+                
+                {connectionStatus.details && (
+                  <div className="error-details">
+                    <p>{connectionStatus.details}</p>
+                  </div>
+                )}
+                
+                <div className="error-meta">
+                  {connectionStatus.gatewayUrl && (
+                    <div className="meta-row">
+                      <span className="meta-label">Gateway URL:</span>
+                      <code>{connectionStatus.gatewayUrl}</code>
+                    </div>
+                  )}
+                  {connectionStatus.lastChecked && (
+                    <div className="meta-row">
+                      <span className="meta-label">Last Checked:</span>
+                      <span>{new Date(connectionStatus.lastChecked).toLocaleTimeString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button onClick={() => { checkHealth(); }} className="retry-button">
+                  <RefreshCw size={16} />
+                  Retry Connection
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <style jsx>{`
         .page-container {
           min-height: 100vh;
@@ -453,6 +591,173 @@ export default function Home() {
         .subtitle {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Status Indicator Styles */
+        .status-indicator {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: transparent;
+          border: none;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: inherit;
+        }
+        .status-indicator.connected {
+          color: #10b981;
+          background: rgba(16, 185, 129, 0.1);
+        }
+        .status-indicator.disconnected {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.15);
+          animation: pulse-error 2s infinite;
+        }
+        .status-indicator.checking {
+          color: rgba(255, 255, 255, 0.5);
+        }
+        .status-indicator:hover {
+          transform: scale(1.02);
+        }
+        .status-indicator.disconnected:hover {
+          background: rgba(239, 68, 68, 0.25);
+        }
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: currentColor;
+        }
+        .checking-dot {
+          animation: pulse-dot 1.5s infinite;
+        }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+        @keyframes pulse-error {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+        .modal-content {
+          background: #1e293b;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 16px;
+          width: 100%;
+          max-width: 480px;
+          overflow: hidden;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .modal-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 20px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .modal-header h2 {
+          flex: 1;
+          margin: 0;
+          font-size: 18px;
+          font-weight: 600;
+          color: #fff;
+        }
+        .modal-close {
+          background: transparent;
+          border: none;
+          color: rgba(255, 255, 255, 0.5);
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 6px;
+          transition: all 0.2s;
+        }
+        .modal-close:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: #fff;
+        }
+        .modal-body {
+          padding: 20px;
+        }
+        .error-type {
+          font-size: 16px;
+          color: #f87171;
+          margin-bottom: 12px;
+        }
+        .error-details {
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 16px;
+        }
+        .error-details p {
+          margin: 0;
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.7);
+          line-height: 1.5;
+          word-break: break-word;
+        }
+        .error-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .meta-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+        }
+        .meta-label {
+          color: rgba(255, 255, 255, 0.5);
+        }
+        .meta-row code {
+          background: rgba(0, 0, 0, 0.3);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 11px;
+          color: #a78bfa;
+        }
+        .modal-footer {
+          padding: 16px 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          display: flex;
+          justify-content: flex-end;
+        }
+        .retry-button {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: #6366f1;
+          border: none;
+          color: white;
+          padding: 10px 16px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: inherit;
+        }
+        .retry-button:hover {
+          background: #4f46e5;
+          transform: scale(1.02);
         }
         .icon-button {
           background: transparent;
