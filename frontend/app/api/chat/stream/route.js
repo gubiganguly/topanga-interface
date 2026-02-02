@@ -16,15 +16,16 @@ export async function POST(req) {
   const session_id = body.session_id || "agent:main:main";
 
   // 1. Insert User Message Immediately (Blocking)
-  // This ensures the user message is in DB before the stream even starts.
   if (session_id) {
-    try {
-      const supabase = getSupabase();
-      await supabase.from("chat_messages").insert([
-        { session_id, role: "user", content: message }
-      ]);
-    } catch (err) {
-      console.error("Failed to save user message", err);
+    // Fail loudly if DB is broken
+    const supabase = getSupabase();
+    const { error } = await supabase.from("chat_messages").insert([
+      { session_id, role: "user", content: message, created_at: new Date().toISOString() }
+    ]);
+    
+    if (error) {
+      console.error("Supabase User Insert Error:", error);
+      return new Response(JSON.stringify({ error: "Database Write Failed: " + error.message }), { status: 500 });
     }
   }
 
@@ -111,13 +112,13 @@ export async function POST(req) {
         controller.error(err);
       } finally {
         // 3. Save Assistant Message BEFORE closing the client stream
-        // This blocks the 'end' of the response until DB write is confirmed.
         if (session_id) {
           try {
             const supabase = getSupabase();
-            await supabase.from("chat_messages").insert([
-              { session_id, role: "assistant", content: fullAssistantResponse || "(no reply)" }
+            const { error } = await supabase.from("chat_messages").insert([
+              { session_id, role: "assistant", content: fullAssistantResponse || "(no reply)", created_at: new Date().toISOString() }
             ]);
+            if (error) console.error("Supabase Assistant Insert Error:", error);
           } catch (err) {
             console.error("Failed to save assistant message", err);
           }
