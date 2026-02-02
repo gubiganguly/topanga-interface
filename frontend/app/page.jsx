@@ -33,17 +33,12 @@ export default function Home() {
     if (!sessionId) return;
     (async () => {
       try {
-        const ids = [sessionId, "agent:main:main"];
-        const results = await Promise.all(
-          ids.map(id => fetch(`/api/chat/history?session_id=${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null))
-        );
+        const data = await fetch(`/api/chat/history`).then(r => r.ok ? r.json() : null);
 
         const combined = [];
-        for (const data of results) {
-          if (Array.isArray(data?.messages)) {
-            for (const m of data.messages) {
-              combined.push({ role: m.role, text: m.content, created_at: m.created_at });
-            }
+        if (Array.isArray(data?.messages)) {
+          for (const m of data.messages) {
+            combined.push({ role: m.role, text: m.content, created_at: m.created_at });
           }
         }
 

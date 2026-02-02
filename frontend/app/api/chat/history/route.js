@@ -14,16 +14,18 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("session_id");
-    if (!sessionId) {
-      return new Response(JSON.stringify({ error: "session_id required" }), { status: 400, headers: { "Content-Type": "application/json" } });
-    }
 
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from("chat_messages")
-      .select("role, content, created_at")
-      .eq("session_id", sessionId)
+      .select("role, content, created_at, session_id")
       .order("created_at", { ascending: true });
+
+    if (sessionId) {
+      query = query.eq("session_id", sessionId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
