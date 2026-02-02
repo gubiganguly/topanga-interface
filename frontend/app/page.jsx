@@ -31,28 +31,32 @@ export default function Home() {
     setSessionId(getSessionId());
   }, []);
 
+  async function refreshHistory() {
+    try {
+      const data = await fetch(`/api/chat/history`).then(r => r.ok ? r.json() : null);
+
+      const combined = [];
+      const sessionSet = new Set();
+      if (Array.isArray(data?.messages)) {
+        for (const m of data.messages) {
+          combined.push({ role: m.role, text: m.content, created_at: m.created_at, session_id: m.session_id });
+          if (m.session_id) sessionSet.add(m.session_id);
+        }
+      }
+
+      if (combined.length) {
+        combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        setMessages(combined.map(m => ({ role: m.role, text: m.text, session_id: m.session_id })));
+        setSessions(Array.from(sessionSet).sort());
+      }
+    } catch {}
+  }
+
   useEffect(() => {
     if (!sessionId) return;
-    (async () => {
-      try {
-        const data = await fetch(`/api/chat/history`).then(r => r.ok ? r.json() : null);
-
-        const combined = [];
-        const sessionSet = new Set();
-        if (Array.isArray(data?.messages)) {
-          for (const m of data.messages) {
-            combined.push({ role: m.role, text: m.content, created_at: m.created_at, session_id: m.session_id });
-            if (m.session_id) sessionSet.add(m.session_id);
-          }
-        }
-
-        if (combined.length) {
-          combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-          setMessages(combined.map(m => ({ role: m.role, text: m.text, session_id: m.session_id })));
-          setSessions(Array.from(sessionSet).sort());
-        }
-      } catch {}
-    })();
+    refreshHistory();
+    const interval = setInterval(refreshHistory, 60_000);
+    return () => clearInterval(interval);
   }, [sessionId]);
 
   useEffect(() => {
@@ -104,6 +108,7 @@ export default function Home() {
 
           if (data === "[DONE]") {
             setSending(false);
+            refreshHistory();
             return;
           }
 
