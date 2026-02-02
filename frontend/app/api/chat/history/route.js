@@ -18,7 +18,7 @@ export async function GET(req) {
     const supabase = getSupabase();
     let query = supabase
       .from("chat_messages")
-      .select("role, content, created_at, session_id")
+      .select("id, role, content, created_at, session_id")
       .order("created_at", { ascending: false })
       .limit(500);
 

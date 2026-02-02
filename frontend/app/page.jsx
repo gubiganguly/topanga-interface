@@ -2,28 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const BACKEND_URL = "";
-
 function getSessionId() {
   if (typeof window === "undefined") return null;
   return "agent:main:main";
 }
 
 export default function Home() {
-  const [messages, setMessages] = useState([
-    { role: "assistant", text: "Topanga online. Ask me anything.", session_id: "agent:main:main" }
-  ]);
+  // State now tracks "confirmed" messages and "pending" messages separately effectively via the merge logic
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [sessionFilter, setSessionFilter] = useState("agent:main:main");
   const [sessions, setSessions] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const endRef = useRef(null);
-
-  // admin panel removed
-
   const [debugInfo, setDebugInfo] = useState({});
+  const endRef = useRef(null);
 
   useEffect(() => {
     setSessionId(getSessionId());
@@ -36,27 +30,52 @@ export default function Home() {
       const res = await fetch(`/api/chat/history`, { cache: "no-store" });
       const data = res.ok ? await res.json() : null;
       
+      const serverMessages = [];
+      const sessionSet = new Set();
+      if (Array.isArray(data?.messages)) {
+        for (const m of data.messages) {
+          serverMessages.push({ 
+            id: m.id, 
+            role: m.role, 
+            text: m.content, 
+            created_at: m.created_at, 
+            session_id: m.session_id,
+            pending: false 
+          });
+          if (m.session_id) sessionSet.add(m.session_id);
+        }
+      }
+      
+      // Sort server messages by time
+      serverMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      setMessages(prev => {
+        // Keep any pending messages from local state that aren't in server list yet
+        const localPending = prev.filter(m => m.pending);
+        
+        // Deduplicate: If a pending message is now in serverMessages (by content match), drop it
+        const uniquePending = localPending.filter(p => {
+          const matched = serverMessages.some(s => 
+            s.role === p.role && 
+            s.text.trim() === p.text.trim() && 
+            // Only match if server msg is recent (last 2 mins) to avoid false positives
+            (new Date().getTime() - new Date(s.created_at).getTime() < 120000)
+          );
+          return !matched;
+        });
+
+        return [...serverMessages, ...uniquePending];
+      });
+
+      if (sessionSet.size) setSessions(Array.from(sessionSet).sort());
+      
       setDebugInfo({
         status: res.status,
-        count: data?.messages?.length || 0,
+        count: serverMessages.length,
         lastFetch: new Date().toLocaleTimeString(),
         sessionId: sid
       });
 
-      const combined = [];
-      const sessionSet = new Set();
-      if (Array.isArray(data?.messages)) {
-        for (const m of data.messages) {
-          combined.push({ role: m.role, text: m.content, created_at: m.created_at, session_id: m.session_id });
-          if (m.session_id) sessionSet.add(m.session_id);
-        }
-      }
-
-      if (combined.length) {
-        combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        setMessages(combined.map(m => ({ role: m.role, text: m.text, session_id: m.session_id })));
-      }
-      if (sessionSet.size) setSessions(Array.from(sessionSet).sort());
     } catch (err) {
       console.error("Refresh history failed", err);
     } finally {
@@ -77,15 +96,20 @@ export default function Home() {
 
   const visibleMessages = sessionFilter === "all"
     ? messages
-    : messages.filter(m => m.session_id === sessionFilter);
+    : messages.filter(m => m.session_id === sessionFilter || m.pending); // Always show pending
 
   async function sendMessage(e) {
     e.preventDefault();
     if (!input.trim() || sending) return;
 
     const currentSessionId = sessionId || "agent:main:main";
-    const userMsg = { role: "user", text: input.trim(), session_id: currentSessionId };
-    setMessages((m) => [...m, userMsg, { role: "assistant", text: "", session_id: currentSessionId }]);
+    const tempId = Date.now();
+    
+    // Add optimistic messages
+    const userMsg = { role: "user", text: input.trim(), session_id: currentSessionId, pending: true, tempId: `u-${tempId}` };
+    const botMsg = { role: "assistant", text: "", session_id: currentSessionId, pending: true, tempId: `b-${tempId}` };
+    
+    setMessages((m) => [...m, userMsg, botMsg]);
     setInput("");
     setSending(true);
 
@@ -119,44 +143,45 @@ export default function Home() {
           if (!line.startsWith("data:")) continue;
           const data = line.replace(/^data:\s?/, "");
 
-          if (data === "[DONE]") {
-            continue;
-          }
+          if (data === "[DONE]") continue;
 
           try {
             const payload = JSON.parse(data);
             const delta = payload.choices?.[0]?.delta?.content || "";
             if (delta) {
               setMessages((m) => {
-                const copy = [...m];
-                copy[copy.length - 1] = {
-                  role: "assistant",
-                  text: (copy[copy.length - 1].text || "") + delta,
-                  session_id: copy[copy.length - 1].session_id || sessionId
-                };
-                return copy;
+                // Update the pending assistant message
+                return m.map(msg => {
+                  if (msg.tempId === botMsg.tempId) {
+                    return { ...msg, text: msg.text + delta };
+                  }
+                  return msg;
+                });
               });
             }
           } catch {
-            // ignore malformed chunks
+            // ignore
           }
         }
       }
-      // Delay refresh to allow Supabase replication to catch up
+      
+      // Delay refresh to allow Supabase replication
       setTimeout(refreshHistory, 1500);
+      
     } catch (err) {
       setMessages((m) => {
-        const copy = [...m];
-        const msg = err?.message || "Error talking to backend.";
-        copy[copy.length - 1] = { role: "assistant", text: msg, session_id: sessionId };
-        return copy;
+        return m.map(msg => {
+          if (msg.tempId === botMsg.tempId) {
+            return { ...msg, text: `Error: ${err.message}` };
+          }
+          return msg;
+        });
       });
     } finally {
       setSending(false);
     }
   }
 
-  // admin panel helpers removed
   return (
     <div style={styles.page}>
       <div style={styles.shell}>
@@ -195,9 +220,12 @@ export default function Home() {
             <div key={i} style={m.role === "user" ? styles.rowUser : styles.rowBot}>
               <div style={m.role === "user" ? styles.bubbleUser : styles.bubbleBot}>
                 <div style={styles.metaRow}>
-                  <span style={styles.badge}>{m.session_id || "unknown"}</span>
+                  <span style={styles.badge}>
+                    {m.session_id || "unknown"}
+                    {m.pending && " • sending..."}
+                  </span>
                 </div>
-                {m.text || (m.role === "assistant" && sending && i === visibleMessages.length - 1 ? "…" : "")}
+                {m.text || (m.role === "assistant" && sending && m.pending ? "…" : "")}
               </div>
             </div>
           ))}
@@ -216,8 +244,6 @@ export default function Home() {
           </button>
         </form>
 
-        {/* admin panel removed */}
-        
         <div style={styles.debug}>
           <details>
             <summary>Debug Info</summary>
@@ -230,14 +256,6 @@ export default function Home() {
 }
 
 const styles = {
-  debug: {
-    padding: 10,
-    fontSize: 10,
-    background: "#eee",
-    borderTop: "1px solid #ddd",
-    maxHeight: 100,
-    overflow: "auto"
-  },
   page: {
     minHeight: "100vh",
     display: "flex",
@@ -360,5 +378,12 @@ const styles = {
     fontWeight: 600,
     cursor: "pointer"
   },
-  // admin styles removed
+  debug: {
+    padding: 10,
+    fontSize: 10,
+    background: "#eee",
+    borderTop: "1px solid #ddd",
+    maxHeight: 100,
+    overflow: "auto"
+  }
 };
