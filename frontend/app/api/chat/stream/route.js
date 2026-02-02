@@ -19,13 +19,17 @@ export async function POST(req) {
   if (session_id) {
     // Fail loudly if DB is broken
     const supabase = getSupabase();
-    const { error } = await supabase.from("chat_messages").insert([
+    const { data, error } = await supabase.from("chat_messages").insert([
       { session_id, role: "user", content: message, created_at: new Date().toISOString() }
-    ]);
+    ]).select();
     
     if (error) {
       console.error("Supabase User Insert Error:", error);
       return new Response(JSON.stringify({ error: "Database Write Failed: " + error.message }), { status: 500 });
+    }
+    if (!data || data.length === 0) {
+      console.error("Supabase RLS Error: Insert succeeded but returned no data.");
+      return new Response(JSON.stringify({ error: "RLS Error: Database wrote data but refuses to show it. Check SUPABASE_SECRET_KEY." }), { status: 500 });
     }
   }
 
