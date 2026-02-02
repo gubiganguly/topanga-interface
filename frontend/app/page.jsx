@@ -407,14 +407,32 @@ export default function Home() {
         }
 
         @media (max-width: 640px) {
-          .page-container { padding: 0; }
+          .page-container { 
+            padding: 0; 
+            align-items: flex-start; /* Align top on mobile */
+          }
           .glass-shell { 
-            height: 100vh; 
+            width: 100%;
+            height: 100dvh; /* Dynamic viewport height for mobile browsers */
             max-height: none; 
             border-radius: 0; 
             border: none;
+            background: rgba(15, 23, 42, 0.95); /* Darker/Solid background */
           }
-          .message-bubble { max-width: 90%; }
+          .message-bubble { max-width: 85%; }
+          
+          .input-area {
+            /* Stick to bottom and respect iPhone Home Bar */
+            position: sticky;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+          }
+          
+          .header {
+             padding-top: max(20px, env(safe-area-inset-top));
+          }
         }
       `}</style>
     </div>
