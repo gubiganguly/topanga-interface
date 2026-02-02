@@ -148,6 +148,14 @@ export default function Home() {
             <div style={styles.subtitle}>Your snarky but warm AI</div>
           </div>
           <div style={styles.headerRight}>
+            <button
+              type="button"
+              onClick={refreshHistory}
+              style={styles.refreshButton}
+              title="Refresh chat history"
+            >
+              Refresh
+            </button>
             <select
               value={sessionFilter}
               onChange={(e) => setSessionFilter(e.target.value)}
@@ -244,6 +252,16 @@ const styles = {
     border: "1px solid #ddd",
     background: "#fff",
     fontSize: 12
+  },
+  refreshButton: {
+    padding: "6px 10px",
+    borderRadius: 8,
+    border: "1px solid #2563eb",
+    background: "#2563eb",
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer"
   },
   metaRow: {
     display: "flex",
