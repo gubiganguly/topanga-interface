@@ -85,11 +85,46 @@ export async function POST(req) {
       return new Response(JSON.stringify({ error: "Gateway returned non-JSON" }), { status: 502, headers: { "Content-Type": "application/json" } });
     }
     const content = data?.choices?.[0]?.message?.content || "";
-    const patch = extractPatch(content);
+    let patch = extractPatch(content);
 
-    const propose = await callAdmin("/propose", { patch });
+    if (!patch.startsWith("diff --git")) {
+      return new Response(JSON.stringify({ error: "Invalid patch format from generator" }), { status: 500, headers: { "Content-Type": "application/json" } });
+    }
+
+    let propose = await callAdmin("/propose", { patch });
     if (!propose.ok) {
-      return new Response(JSON.stringify({ error: propose.text || "Propose failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      // retry once with feedback
+      const retryPrompt = `The patch failed to apply. Error:\n${propose.text}\nGenerate a corrected unified diff patch ONLY.`;
+      const retryRes = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: gatewayHeaders,
+        body: JSON.stringify({
+          model: "openclaw",
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: prompt },
+            { role: "assistant", content },
+            { role: "user", content: retryPrompt }
+          ]
+        })
+      });
+      const retryRaw = await retryRes.text();
+      if (!retryRes.ok) {
+        return new Response(JSON.stringify({ error: retryRaw || "Gateway retry error" }), { status: retryRes.status, headers: { "Content-Type": "application/json" } });
+      }
+      let retryData;
+      try { retryData = JSON.parse(retryRaw); } catch {
+        return new Response(JSON.stringify({ error: "Gateway retry returned non-JSON" }), { status: 502, headers: { "Content-Type": "application/json" } });
+      }
+      const retryContent = retryData?.choices?.[0]?.message?.content || "";
+      patch = extractPatch(retryContent);
+      if (!patch.startsWith("diff --git")) {
+        return new Response(JSON.stringify({ error: "Invalid patch format after retry" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+      propose = await callAdmin("/propose", { patch });
+      if (!propose.ok) {
+        return new Response(JSON.stringify({ error: propose.text || "Propose failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
     }
 
     const apply = await callAdmin("/apply", { id: propose.json?.id, hash: propose.json?.hash });
