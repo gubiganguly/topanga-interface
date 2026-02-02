@@ -128,7 +128,7 @@ export default function Home() {
             </div>
             <div>
               <h1 className="title">Topanga</h1>
-              <div className="subtitle">Online • v2.5</div>
+              <div className="subtitle">Online • v2.6</div>
             </div>
           </div>
           <div className="header-right">
@@ -147,7 +147,7 @@ export default function Home() {
         <div className="chat-area">
           <AnimatePresence>
             {messages.map((m, i) => {
-              if (m.role === "assistant" && !m.content) return null; // Hide empty bot placeholder (thinking bubble shows instead)
+              if (m.role === "assistant" && !m.content) return null;
               return (
               <motion.div 
                 key={i}
@@ -171,7 +171,8 @@ export default function Home() {
                   )}
                 </div>
               </motion.div>
-            ))}
+            );
+            })}
           </AnimatePresence>
           
           {sending && (!messages.length || messages[messages.length-1]?.content === "") && (
