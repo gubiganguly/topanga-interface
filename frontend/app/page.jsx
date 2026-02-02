@@ -129,6 +129,12 @@ export default function Home() {
     setInput(e.target.value);
   };
 
+  const dismissKeyboard = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="glass-shell">
@@ -157,7 +163,7 @@ export default function Home() {
         </header>
 
         {/* Chat Area */}
-        <div className="chat-area">
+        <div className="chat-area" onClick={dismissKeyboard} onTouchStart={dismissKeyboard}>
           <AnimatePresence>
             {messages.map((m, i) => {
               if (m.role === "assistant" && !m.content) return null;
@@ -217,6 +223,7 @@ export default function Home() {
               placeholder={sending ? "Type your next message..." : "Message Topanga..."}
               className="chat-input"
               rows={1}
+              enterKeyHint="send"
             />
             <button type="submit" disabled={sending || !input.trim()} className="send-button">
               <Send size={18} />
