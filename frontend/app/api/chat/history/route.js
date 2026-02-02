@@ -33,6 +33,7 @@ export async function GET(req) {
 
     const debug = searchParams.get("debug") === "1";
     let sessions = [];
+    let supabaseHost = undefined;
     if (debug) {
       const { data: sdata } = await supabase
         .from("chat_messages")
@@ -40,9 +41,12 @@ export async function GET(req) {
         .order("created_at", { ascending: false })
         .limit(20);
       sessions = (sdata || []).map(r => r.session_id);
+      try {
+        supabaseHost = new URL(process.env.SUPABASE_URL || "").host || undefined;
+      } catch {}
     }
 
-    return new Response(JSON.stringify({ session_id: sessionId, count: (data || []).length, messages: data || [], sessions }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ session_id: sessionId, count: (data || []).length, messages: data || [], sessions, supabase_host: supabaseHost }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ error: err?.message || "server error" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
