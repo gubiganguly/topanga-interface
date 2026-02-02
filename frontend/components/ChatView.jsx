@@ -1,21 +1,20 @@
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Mic, MicOff, Paperclip, X } from "lucide-react";
+import { Send, Mic, Paperclip, X } from "lucide-react";
 
-export default function ChatView({ 
-  messages, 
-  input, 
-  setInput, 
-  sendMessage, 
-  sending, 
-  isListening, 
-  toggleListening,
+export default function ChatView({
+  messages,
+  input,
+  setInput,
+  sendMessage,
+  sending,
   selectedImage,
   setSelectedImage,
   fileInputRef,
   handleFileSelect,
-  removeImage
+  removeImage,
+  setActiveView
 }) {
   const endRef = useRef(null);
 
@@ -93,7 +92,8 @@ export default function ChatView({
         <div ref={endRef} style={{ height: 1 }} />
       </div>
 
-      <form onSubmit={sendMessage} className="input-area">
+      <div className="input-area">
+        <form onSubmit={sendMessage}>
         {selectedImage && (
           <div className="preview-container">
             <div className="preview-wrapper">
@@ -121,20 +121,20 @@ export default function ChatView({
           >
             <Paperclip size={18} />
           </button>
-          <button 
-            type="button" 
-            onClick={toggleListening}
-            className={`mic-button ${isListening ? "listening" : ""}`}
+          <button
+            type="button"
+            onClick={() => setActiveView("voice")}
+            className="mic-button"
             style={{ left: 44 }}
-            title="Voice Input"
+            title="Voice Mode"
           >
-            {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+            <Mic size={18} />
           </button>
           <textarea
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            placeholder={isListening ? "Listening..." : (sending ? "Type your next message..." : "Message Topanga...")}
+            placeholder={sending ? "Type your next message..." : "Message Topanga..."}
             className="chat-input"
             rows={1}
             enterKeyHint="send"
@@ -143,20 +143,29 @@ export default function ChatView({
             <Send size={18} />
           </button>
         </div>
-      </form>
+        </form>
+      </div>
 
       <style jsx>{`
         .chat-view-container {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
           width: 100%;
+          height: 100%;
           overflow: hidden;
         }
         .chat-area {
-          flex: 1;
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 100px;
           overflow-y: auto;
           padding: 24px;
+          padding-bottom: 8px;
           display: flex;
           flex-direction: column;
           gap: 16px;
@@ -199,9 +208,24 @@ export default function ChatView({
         }
 
         .input-area {
-          padding: 20px;
-          background: rgba(255, 255, 255, 0.02);
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 16px 20px;
+          padding-bottom: max(16px, env(safe-area-inset-bottom));
+          background: transparent;
+          animation: slideUp 0.4s ease-out;
+        }
+        @keyframes slideUp {
+          from {
+            transform: translateY(100px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
         }
         .input-wrapper {
           position: relative;
@@ -278,10 +302,6 @@ export default function ChatView({
         .mic-button:hover {
           color: #fff;
           background: rgba(255, 255, 255, 0.1);
-        }
-        .mic-button.listening {
-          color: #ef4444;
-          animation: pulse-ring 1.5s infinite;
         }
         .chat-input:focus {
           border-color: rgba(139, 92, 246, 0.5);

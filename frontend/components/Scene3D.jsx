@@ -1,9 +1,32 @@
 "use client";
 
 import { useRef, useState, useMemo, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { MeshDistortMaterial, Sphere, Float, Stars, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
+
+// Component to handle responsive camera adjustments
+function ResponsiveCamera() {
+  const { camera, size } = useThree();
+
+  useEffect(() => {
+    // Adjust camera position based on viewport width
+    // Move camera further back on smaller screens
+    const isMobile = size.width < 600;
+    const isTablet = size.width < 1024 && size.width >= 600;
+
+    if (isMobile) {
+      camera.position.z = 7; // Further back for phones
+    } else if (isTablet) {
+      camera.position.z = 6; // Slightly back for tablets
+    } else {
+      camera.position.z = 5; // Default for desktop
+    }
+    camera.updateProjectionMatrix();
+  }, [camera, size.width]);
+
+  return null;
+}
 
 function Creature({ analyser, isListening }) {
   const meshRef = useRef();
@@ -106,22 +129,22 @@ function Creature({ analyser, isListening }) {
     // === ANIMATION SPEED ===
     materialRef.current.speed = isListening ? 3 + (smoothAudio / 255) * 6 : 2;
 
-    // === POSITION: CENTER ON WAKE UP ===
-    const centerPos = new THREE.Vector3(0, 0, 0);
+    // === POSITION: MOVE UP WHEN LISTENING ===
+    const listeningPos = new THREE.Vector3(0, 0.6, 0); // Move up when listening
 
     if (isListening) {
-      // When listening, snap to center with smooth transition
+      // When listening, move up with smooth transition
       if (isTransitioning) {
-        // Quick snap to center during wake-up transition
-        groupRef.current.position.lerp(centerPos, 0.08);
+        // Quick move up during wake-up transition
+        groupRef.current.position.lerp(listeningPos, 0.08);
       } else {
-        // Stay centered but with subtle audio-reactive movement
+        // Stay elevated but with subtle audio-reactive movement
         const audioOffset = new THREE.Vector3(
           Math.sin(time * 2) * (smoothAudio / 500),
           Math.cos(time * 1.5) * (smoothAudio / 600),
           0
         );
-        groupRef.current.position.lerp(centerPos.clone().add(audioOffset), 0.05);
+        groupRef.current.position.lerp(listeningPos.clone().add(audioOffset), 0.05);
       }
     } else {
       // Idle: Organic roaming
@@ -199,6 +222,7 @@ function ReactiveLight({ analyser, isListening, position, baseColor, baseIntensi
 export default function Scene3D({ analyser, isListening }) {
   return (
     <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+      <ResponsiveCamera />
       <ambientLight intensity={isListening ? 0.6 : 0.5} />
       <ReactiveLight
         analyser={analyser}

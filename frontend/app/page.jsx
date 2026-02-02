@@ -3,11 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, RefreshCw, Wifi, WifiOff, X } from "lucide-react";
-import Sidebar from "../components/Sidebar";
 import ChatView from "../components/ChatView";
 import VoiceView from "../components/VoiceView";
 import StocksView from "../components/StocksView";
-import ChatSidebar from "../components/ChatSidebar";
 import "./globals.css";
 
 function getSessionId() {
@@ -37,10 +35,6 @@ export default function Home() {
     lastChecked: null
   });
   const [showErrorModal, setShowErrorModal] = useState(false);
-
-  // Chat sidebar state (for voice view)
-  const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
-  const prevMessagesLengthRef = useRef(0);
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -148,17 +142,6 @@ export default function Home() {
     const interval = setInterval(refreshHistory, 5000);
     return () => clearInterval(interval);
   }, [sessionId, connectionStatus.connected]);
-
-  // Auto-open chat sidebar when bot starts responding (only in voice view)
-  useEffect(() => {
-    if (activeView === "voice" && messages.length > prevMessagesLengthRef.current) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.role === "assistant") {
-        setIsChatSidebarOpen(true);
-      }
-    }
-    prevMessagesLengthRef.current = messages.length;
-  }, [messages, activeView]);
 
   async function sendMessage(e) {
     if (e) e.preventDefault();
@@ -282,8 +265,6 @@ export default function Home() {
 
   return (
     <div className="app-container">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} />
-      
       <main className="main-content">
         {/* Header Overlay for Status */}
         <div className="status-overlay">
@@ -324,8 +305,7 @@ export default function Home() {
               <VoiceView
                 isListening={isListening}
                 toggleListening={toggleListening}
-                onToggleSidebar={() => setIsChatSidebarOpen(!isChatSidebarOpen)}
-                isSidebarOpen={isChatSidebarOpen}
+                setActiveView={setActiveView}
                 input={input}
                 setInput={setInput}
                 sendMessage={sendMessage}
@@ -343,19 +323,18 @@ export default function Home() {
               transition={{ duration: 0.3 }}
               className="view-wrapper"
             >
-              <ChatView 
+              <ChatView
                 messages={messages}
                 input={input}
                 setInput={setInput}
                 sendMessage={sendMessage}
                 sending={sending}
-                isListening={isListening}
-                toggleListening={toggleListening}
                 selectedImage={selectedImage}
                 setSelectedImage={setSelectedImage}
                 fileInputRef={fileInputRef}
                 handleFileSelect={handleFileSelect}
                 removeImage={removeImage}
+                setActiveView={setActiveView}
               />
             </motion.div>
           )}
@@ -374,22 +353,6 @@ export default function Home() {
           )}
         </AnimatePresence>
       </main>
-
-      {/* Chat Sidebar for Voice View */}
-      <AnimatePresence>
-        {activeView === "voice" && isChatSidebarOpen && (
-          <ChatSidebar
-            key="chat-sidebar"
-            isOpen={isChatSidebarOpen}
-            onClose={() => setIsChatSidebarOpen(false)}
-            messages={messages}
-            input={input}
-            setInput={setInput}
-            sendMessage={sendMessage}
-            sending={sending}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Error Modal */}
       <AnimatePresence>
@@ -473,6 +436,9 @@ export default function Home() {
         .view-wrapper {
           width: 100%;
           height: 100%;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
           overflow: hidden;
         }
         .status-overlay {

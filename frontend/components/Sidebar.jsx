@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
-import { MessageSquare, Mic, TrendingUp, ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { MessageSquare, Mic, TrendingUp, ChevronLeft, Settings } from "lucide-react";
 import { useState } from "react";
 
 export default function Sidebar({ activeView, setActiveView }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const menuItems = [
     { id: "voice", label: "Voice Bot", icon: Mic },
@@ -17,15 +17,21 @@ export default function Sidebar({ activeView, setActiveView }) {
       animate={{ width: isCollapsed ? 60 : 240 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className="sidebar-header">
-        <div className="logo-container">
-          <div className="logo-icon"></div>
-          {!isCollapsed && <motion.span initial={{opacity: 0}} animate={{opacity: 1}} className="logo-text">Topanga</motion.span>}
+      {isCollapsed ? (
+        <div className="sidebar-header collapsed-header" onClick={() => setIsCollapsed(false)}>
+          <div className="expand-zone"></div>
         </div>
-        <button onClick={() => setIsCollapsed(!isCollapsed)} className="collapse-btn">
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-      </div>
+      ) : (
+        <div className="sidebar-header">
+          <div className="logo-container">
+            <div className="logo-icon"></div>
+            <motion.span initial={{opacity: 0}} animate={{opacity: 1}} className="logo-text">Topanga</motion.span>
+          </div>
+          <button onClick={() => setIsCollapsed(!isCollapsed)} className="collapse-btn">
+            <ChevronLeft size={16} />
+          </button>
+        </div>
+      )}
 
       <div className="menu-items">
         {menuItems.map((item) => {
@@ -48,8 +54,8 @@ export default function Sidebar({ activeView, setActiveView }) {
                   {item.label}
                 </motion.span>
               )}
-              {isActive && (
-                <motion.div 
+              {isActive && !isCollapsed && (
+                <motion.div
                   layoutId="activeIndicator"
                   className="active-indicator"
                 />
@@ -68,14 +74,15 @@ export default function Sidebar({ activeView, setActiveView }) {
 
       <style jsx>{`
         .sidebar {
+          position: relative;
+          z-index: 100;
           height: 100vh;
-          background: rgba(15, 23, 42, 0.8);
-          backdrop-filter: blur(20px);
-          border-right: 1px solid rgba(255, 255, 255, 0.1);
+          background: ${isCollapsed ? 'transparent' : 'rgba(10, 15, 28, 0.95)'};
+          backdrop-filter: ${isCollapsed ? 'none' : 'blur(20px)'};
+          border-right: ${isCollapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.05)'};
           display: flex;
           flex-direction: column;
-          overflow: hidden;
-          z-index: 100;
+          transition: background 0.3s, backdrop-filter 0.3s, border-right 0.3s;
         }
         .sidebar-header {
           padding: 20px;
@@ -83,6 +90,14 @@ export default function Sidebar({ activeView, setActiveView }) {
           align-items: center;
           justify-content: space-between;
           height: 70px;
+        }
+        .collapsed-header {
+          cursor: pointer;
+          justify-content: center;
+        }
+        .expand-zone {
+          width: 100%;
+          height: 100%;
         }
         .logo-container {
           display: flex;
@@ -142,7 +157,7 @@ export default function Sidebar({ activeView, setActiveView }) {
         }
         .menu-item:hover {
           color: white;
-          background: rgba(255, 255, 255, 0.05);
+          background: ${isCollapsed ? 'transparent' : 'rgba(255, 255, 255, 0.05)'};
         }
         .menu-item.active {
           color: white;
@@ -160,7 +175,7 @@ export default function Sidebar({ activeView, setActiveView }) {
         }
         .sidebar-footer {
           padding: 20px 10px;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          border-top: ${isCollapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.05)'};
         }
       `}</style>
     </motion.div>

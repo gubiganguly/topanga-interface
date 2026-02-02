@@ -5,13 +5,19 @@ import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, ChevronDown } from "lucide-react";
 
-// Hook to detect mobile viewport
-function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(false);
+// Hook to detect mobile/tablet viewport (SSR-safe)
+function useIsMobile(breakpoint = 1024) {
+  const [isMobile, setIsMobile] = useState(() => {
+    // Check on initial render if we're in browser
+    if (typeof window !== "undefined") {
+      return window.innerWidth <= breakpoint;
+    }
+    return true; // Default to mobile for SSR
+  });
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= breakpoint);
-    checkMobile();
+    checkMobile(); // Check immediately on mount
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, [breakpoint]);
@@ -182,57 +188,57 @@ export default function ChatSidebar({
       <style jsx>{`
         .sidebar-backdrop {
           position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.3);
-          z-index: 55;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.6);
+          z-index: 9998;
         }
 
         .chat-sidebar {
           position: fixed;
           top: 0;
+          left: 0;
           right: 0;
-          width: 380px;
+          width: 100vw;
           height: 100vh;
-          background: rgba(15, 23, 42, 0.95);
+          background: rgba(15, 23, 42, 0.98);
           backdrop-filter: blur(20px);
-          border-left: 1px solid rgba(255, 255, 255, 0.1);
-          z-index: 60;
+          border-left: none;
+          z-index: 9999;
           display: flex;
           flex-direction: column;
         }
 
-        /* Mobile drawer styles */
+        /* Mobile/Tablet drawer styles - slides up from bottom, overlays everything */
         .chat-sidebar.mobile-drawer {
-          top: auto;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          width: 100%;
-          height: 75vh;
-          max-height: 75vh;
+          top: auto !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          width: 100vw !important;
+          height: 85vh;
+          max-height: 85vh;
           border-left: none;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          border-top: 1px solid rgba(255, 255, 255, 0.15);
           border-radius: 24px 24px 0 0;
+          box-shadow: 0 -10px 50px rgba(0, 0, 0, 0.5);
         }
 
         .drawer-handle {
           display: flex;
           justify-content: center;
-          padding: 12px 0 4px;
+          padding: 12px 0 8px;
           cursor: pointer;
+          touch-action: none;
         }
 
         .handle-bar {
-          width: 40px;
-          height: 4px;
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 2px;
-        }
-
-        @media (max-width: 480px) {
-          .chat-sidebar:not(.mobile-drawer) {
-            width: 100%;
-          }
+          width: 48px;
+          height: 5px;
+          background: rgba(255, 255, 255, 0.4);
+          border-radius: 3px;
         }
 
         .sidebar-header {
@@ -273,12 +279,21 @@ export default function ChatSidebar({
         }
 
         .messages-area {
-          flex: 1;
+          position: absolute;
+          top: 60px;
+          left: 0;
+          right: 0;
+          bottom: 80px;
           overflow-y: auto;
           padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 12px;
+        }
+
+        .mobile-drawer .messages-area {
+          top: 80px;
+          bottom: 100px;
         }
 
         .empty-state {
@@ -395,15 +410,19 @@ export default function ChatSidebar({
         }
 
         .sidebar-input {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
           display: flex;
           gap: 8px;
-          padding: 12px 16px;
+          padding: 16px;
           border-top: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(0, 0, 0, 0.2);
+          background: rgba(15, 23, 42, 0.98);
         }
 
         .mobile-drawer .sidebar-input {
-          padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+          padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
         }
 
         .text-input {

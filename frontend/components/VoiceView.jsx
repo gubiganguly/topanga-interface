@@ -56,8 +56,7 @@ function FloatingOrb({ delay, duration, size, distance, isListening, audioLevel 
 export default function VoiceView({
   isListening,
   toggleListening,
-  onToggleSidebar,
-  isSidebarOpen,
+  setActiveView,
   input,
   setInput,
   sendMessage,
@@ -283,41 +282,38 @@ export default function VoiceView({
           </AnimatePresence>
         </motion.div>
 
-        {/* Transcript preview and send button */}
-        <AnimatePresence>
-          {input && input.trim() && !isListening && (
-            <motion.div
-              className="transcript-container"
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="transcript-text">{input}</div>
-              <motion.button
-                className="send-message-btn"
-                onClick={sendMessage}
-                disabled={sending}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Send size={18} />
-                <span>{sending ? "Sending..." : "Send"}</span>
-              </motion.button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
-      {/* Chat sidebar toggle button */}
+      {/* Transcript above mic button - centered on page */}
+      <AnimatePresence>
+        {input && input.trim() && !isListening && (
+          <motion.div
+            className="transcript-container-above"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="transcript-text">{input}</div>
+            <motion.button
+              className="send-message-btn"
+              onClick={sendMessage}
+              disabled={sending}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Send size={18} />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Chat page navigation button */}
       <motion.button
         className="chat-toggle-btn"
-        onClick={onToggleSidebar}
+        onClick={() => setActiveView("chat")}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        animate={{
-          backgroundColor: isSidebarOpen ? "rgba(139, 92, 246, 0.3)" : "rgba(15, 15, 25, 0.8)",
-        }}
       >
         <MessageSquare size={20} />
       </motion.button>
@@ -355,10 +351,16 @@ export default function VoiceView({
           gap: 16px;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .voice-controls {
-            bottom: 100px;
+            bottom: 80px;
             gap: 12px;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .voice-controls {
+            bottom: 60px;
           }
         }
       `}</style>
@@ -424,7 +426,7 @@ export default function VoiceView({
                       0 0 20px 6px rgba(59, 130, 246, 0.3);
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .orb-inner {
             width: 6px;
             height: 6px;
@@ -519,43 +521,51 @@ export default function VoiceView({
           filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8));
         }
 
-        .transcript-container {
+        .transcript-container-above {
+          position: fixed;
+          bottom: 180px;
+          left: 50%;
+          transform: translateX(calc(-50% - 28px));
+          z-index: 10;
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
           align-items: center;
           gap: 12px;
-          max-width: 320px;
-          margin-top: 8px;
+          max-width: 400px;
+          width: max-content;
         }
 
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600&display=swap');
+
         .transcript-text {
-          background: rgba(15, 15, 25, 0.8);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 16px;
+          background: transparent;
+          border: none;
           padding: 12px 18px;
-          color: rgba(255, 255, 255, 0.9);
-          font-size: 14px;
+          color: rgba(255, 255, 255, 0.95);
+          font-family: 'Quicksand', sans-serif;
+          font-size: 16px;
+          font-weight: 500;
           line-height: 1.5;
           text-align: center;
           max-height: 100px;
           overflow-y: auto;
+          letter-spacing: 0.3px;
         }
 
         .send-message-btn {
           display: flex;
           align-items: center;
-          gap: 8px;
+          justify-content: center;
           background: linear-gradient(135deg, #6366f1, #8b5cf6);
           border: none;
           color: white;
-          padding: 12px 24px;
-          border-radius: 25px;
-          font-size: 14px;
-          font-weight: 500;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
           cursor: pointer;
           box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
           transition: all 0.2s;
+          flex-shrink: 0;
         }
 
         .send-message-btn:hover:not(:disabled) {
@@ -592,8 +602,8 @@ export default function VoiceView({
           box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
         }
 
-        /* Mobile responsive styles */
-        @media (max-width: 768px) {
+        /* Mobile/Tablet responsive styles */
+        @media (max-width: 1024px) {
           .gradient-ring-outer {
             width: 90px;
             height: 90px;
@@ -642,20 +652,21 @@ export default function VoiceView({
             font-size: 11px;
           }
 
-          .transcript-container {
-            max-width: 280px;
-            margin-top: 4px;
+          .transcript-container-above {
+            max-width: 320px;
+            bottom: 160px;
+            transform: translateX(calc(-50% - 26px));
+          }
+
+          .send-message-btn {
+            width: 40px;
+            height: 40px;
           }
 
           .transcript-text {
             padding: 10px 14px;
             font-size: 13px;
             max-height: 80px;
-          }
-
-          .send-message-btn {
-            padding: 10px 20px;
-            font-size: 13px;
           }
 
           .chat-toggle-btn {
@@ -666,8 +677,8 @@ export default function VoiceView({
           }
         }
 
-        /* Very small screens */
-        @media (max-width: 380px) {
+        /* Very small screens (phones) */
+        @media (max-width: 480px) {
           .gradient-ring-outer {
             width: 80px;
             height: 80px;
@@ -688,8 +699,16 @@ export default function VoiceView({
             height: 55px;
           }
 
-          .transcript-container {
-            max-width: 240px;
+          .transcript-container-above {
+            max-width: 280px;
+            bottom: 140px;
+            gap: 8px;
+            transform: translateX(calc(-50% - 22px));
+          }
+
+          .send-message-btn {
+            width: 36px;
+            height: 36px;
           }
         }
       `}</style>
