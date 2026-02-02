@@ -131,7 +131,8 @@ export default function Home() {
           }
         }
       }
-      refreshHistory();
+      // Delay refresh to allow Supabase replication to catch up
+      setTimeout(refreshHistory, 1500);
     } catch (err) {
       setMessages((m) => {
         const copy = [...m];

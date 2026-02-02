@@ -20,7 +20,7 @@ export async function GET(req) {
       .from("chat_messages")
       .select("role, content, created_at, session_id")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(500);
 
     if (sessionId) {
       query = query.eq("session_id", sessionId);
