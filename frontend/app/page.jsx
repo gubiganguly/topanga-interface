@@ -161,6 +161,9 @@ export default function Home() {
           <AnimatePresence>
             {messages.map((m, i) => {
               if (m.role === "assistant" && !m.content) return null;
+              
+              const isStreaming = m.role === "assistant" && sending && i === messages.length - 1;
+              
               return (
               <motion.div 
                 key={i}
@@ -169,7 +172,7 @@ export default function Home() {
                 transition={{ duration: 0.3 }}
                 className={`message-row ${m.role === "user" ? "user-row" : "bot-row"}`}
               >
-                <div className={`message-bubble ${m.role === "user" ? "user-bubble" : "bot-bubble"}`}>
+                <div className={`message-bubble ${m.role === "user" ? "user-bubble" : "bot-bubble"} ${isStreaming ? "pulsating-active" : ""}`}>
                   <div className="message-content prose">
                     {m.role === "assistant" ? (
                       <ReactMarkdown>{m.content}</ReactMarkdown>
@@ -211,8 +214,9 @@ export default function Home() {
               value={input}
               onChange={handleInput}
               onKeyDown={handleKeyDown}
-              placeholder="Message Topanga..."
-              className="chat-input"
+              disabled={sending}
+              placeholder={sending ? "Topanga is thinking..." : "Message Topanga..."}
+              className={`chat-input ${sending ? 'disabled' : ''}`}
               rows={1}
             />
             <button type="submit" disabled={sending || !input.trim()} className="send-button">
@@ -371,6 +375,11 @@ export default function Home() {
         .chat-input:focus {
           border-color: rgba(139, 92, 246, 0.5);
           background: rgba(0, 0, 0, 0.3);
+        }
+        .chat-input.disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          background: rgba(0, 0, 0, 0.1);
         }
         .send-button {
           position: absolute;
