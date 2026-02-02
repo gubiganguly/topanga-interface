@@ -116,6 +116,19 @@ export default function Home() {
     }
   }
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(e);
+    }
+  };
+
+  const handleInput = (e) => {
+    e.target.style.height = "auto";
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+    setInput(e.target.value);
+  };
+
   return (
     <div className="page-container">
       <div className="glass-shell">
@@ -194,11 +207,13 @@ export default function Home() {
         {/* Input Area */}
         <form onSubmit={sendMessage} className="input-area">
           <div className="input-wrapper">
-            <input
+            <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
               placeholder="Message Topanga..."
               className="chat-input"
+              rows={1}
             />
             <button type="submit" disabled={sending || !input.trim()} className="send-button">
               <Send size={18} />
@@ -335,18 +350,23 @@ export default function Home() {
         .input-wrapper {
           position: relative;
           display: flex;
-          align-items: center;
+          align-items: flex-end;
         }
         .chat-input {
           width: 100%;
           background: rgba(0, 0, 0, 0.2);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 16px;
-          padding: 16px 50px 16px 20px;
+          padding: 14px 50px 14px 20px;
           color: #fff;
           font-size: 16px;
           outline: none;
           transition: border-color 0.2s;
+          resize: none;
+          min-height: 52px;
+          max-height: 150px;
+          font-family: inherit;
+          line-height: 1.5;
         }
         .chat-input:focus {
           border-color: rgba(139, 92, 246, 0.5);
@@ -355,12 +375,13 @@ export default function Home() {
         .send-button {
           position: absolute;
           right: 8px;
+          bottom: 8px;
           background: #8b5cf6;
           border: none;
           color: white;
-          width: 40px;
-          height: 40px;
-          border-radius: 12px;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
