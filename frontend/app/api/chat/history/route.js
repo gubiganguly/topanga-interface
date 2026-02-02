@@ -44,16 +44,18 @@ export async function GET(req) {
       keyRole = payload.role;
     } catch {}
 
+    // Check DB time and latest message for diagnostics
+    let dbTime = null;
+    let latestMsg = null;
     if (debug) {
-      const { data: sdata } = await supabase
-        .from("chat_messages")
-        .select("session_id")
-        .order("created_at", { ascending: false })
-        .limit(20);
-      sessions = (sdata || []).map(r => r.session_id);
       try {
-        supabaseHost = new URL(process.env.SUPABASE_URL || "").host || undefined;
+        const { data: timeData } = await supabase.rpc('get_time_check').select().catch(() => ({ data: null })); // RPC might not exist, fallback
+        // Or just select now() via raw query if supported, but Supabase JS doesn't do raw sql easily without rpc
+        // Workaround: insert a temp probe or just trust created_at
       } catch {}
+      
+      const { data: last } = await supabase.from("chat_messages").select("id, created_at, session_id").order("created_at", { ascending: false }).limit(1);
+      latestMsg = last?.[0];
     }
 
     return new Response(JSON.stringify({ 
@@ -62,7 +64,8 @@ export async function GET(req) {
       messages: data || [], 
       sessions, 
       supabase_host: supabaseHost,
-      key_role: keyRole 
+      key_role: keyRole,
+      latest_db_msg: latestMsg
     }), {
       status: 200,
       headers: {

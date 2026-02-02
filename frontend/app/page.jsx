@@ -27,7 +27,7 @@ export default function Home() {
     setIsRefreshing(true);
     const sid = sessionId || "agent:main:main";
     try {
-      const res = await fetch(`/api/chat/history`, { cache: "no-store" });
+      const res = await fetch(`/api/chat/history?debug=1`, { cache: "no-store" });
       const data = res.ok ? await res.json() : null;
       
       const serverMessages = [];
@@ -78,7 +78,8 @@ export default function Home() {
         pendingCount: prev => prev.filter(m => m.pending).length,
         lastFetch: new Date().toLocaleTimeString(),
         sessionId: sid,
-        keyRole: data?.key_role || "unknown"
+        keyRole: data?.key_role || "unknown",
+        latestDbMsg: data?.latest_db_msg
       });
 
     } catch (err) {
