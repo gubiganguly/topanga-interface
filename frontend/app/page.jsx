@@ -33,11 +33,23 @@ export default function Home() {
     if (!sessionId) return;
     (async () => {
       try {
-        const res = await fetch(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (Array.isArray(data?.messages) && data.messages.length) {
-          setMessages(data.messages.map(m => ({ role: m.role, text: m.content })));
+        const ids = [sessionId, "agent:main:main"];
+        const results = await Promise.all(
+          ids.map(id => fetch(`/api/chat/history?session_id=${encodeURIComponent(id)}`).then(r => r.ok ? r.json() : null))
+        );
+
+        const combined = [];
+        for (const data of results) {
+          if (Array.isArray(data?.messages)) {
+            for (const m of data.messages) {
+              combined.push({ role: m.role, text: m.content, created_at: m.created_at });
+            }
+          }
+        }
+
+        if (combined.length) {
+          combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          setMessages(combined.map(m => ({ role: m.role, text: m.text })));
         }
       } catch {}
     })();
