@@ -48,7 +48,7 @@ export async function POST(req) {
       return new Response(JSON.stringify({ error: "Missing gateway/admin env" }), { status: 500, headers: { "Content-Type": "application/json" } });
     }
 
-    const system = `You are generating a git patch for a Next.js project.\n- Output ONLY a valid unified diff (no markdown, no commentary).\n- Only modify files under: frontend/, README.md, .gitignore.\n- Keep changes minimal.\n- Do not include \\ No newline at end of file markers.`;
+    const system = `You are generating a git patch for a Next.js project.\n- Output ONLY a valid unified diff starting with \"diff --git\".\n- No markdown, no commentary, no extra text.\n- Only modify files under: frontend/, README.md, .gitignore.\n- Keep changes minimal.\n- Do not include \\ No newline at end of file markers.`;
 
     const prompt = `Task: ${instruction}\nReturn a unified diff patch.`;
 
@@ -87,14 +87,8 @@ export async function POST(req) {
     const content = data?.choices?.[0]?.message?.content || "";
     let patch = extractPatch(content);
 
-    if (!patch.startsWith("diff --git")) {
-      return new Response(JSON.stringify({ error: "Invalid patch format from generator" }), { status: 500, headers: { "Content-Type": "application/json" } });
-    }
-
-    let propose = await callAdmin("/propose", { patch });
-    if (!propose.ok) {
-      // retry once with feedback
-      const retryPrompt = `The patch failed to apply. Error:\n${propose.text}\nGenerate a corrected unified diff patch ONLY.`;
+    const retryWith = async (reason) => {
+      const retryPrompt = `The patch was invalid. Reason: ${reason}\nReturn ONLY a unified diff patch that starts with \"diff --git\". No markdown, no commentary.`;
       const retryRes = await fetch(`${gatewayUrl}/v1/chat/completions`, {
         method: "POST",
         headers: gatewayHeaders,
@@ -110,14 +104,35 @@ export async function POST(req) {
       });
       const retryRaw = await retryRes.text();
       if (!retryRes.ok) {
-        return new Response(JSON.stringify({ error: retryRaw || "Gateway retry error" }), { status: retryRes.status, headers: { "Content-Type": "application/json" } });
+        return { ok: false, error: retryRaw || "Gateway retry error" };
       }
       let retryData;
       try { retryData = JSON.parse(retryRaw); } catch {
-        return new Response(JSON.stringify({ error: "Gateway retry returned non-JSON" }), { status: 502, headers: { "Content-Type": "application/json" } });
+        return { ok: false, error: "Gateway retry returned non-JSON" };
       }
       const retryContent = retryData?.choices?.[0]?.message?.content || "";
-      patch = extractPatch(retryContent);
+      const retryPatch = extractPatch(retryContent);
+      return { ok: true, patch: retryPatch };
+    };
+
+    if (!patch.startsWith("diff --git")) {
+      const retried = await retryWith("Missing diff header");
+      if (!retried.ok) {
+        return new Response(JSON.stringify({ error: retried.error || "Invalid patch format from generator" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+      patch = retried.patch;
+      if (!patch.startsWith("diff --git")) {
+        return new Response(JSON.stringify({ error: "Invalid patch format after retry" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+    }
+
+    let propose = await callAdmin("/propose", { patch });
+    if (!propose.ok) {
+      const retried = await retryWith(`Propose failed: ${propose.text}`);
+      if (!retried.ok) {
+        return new Response(JSON.stringify({ error: propose.text || "Propose failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+      patch = retried.patch;
       if (!patch.startsWith("diff --git")) {
         return new Response(JSON.stringify({ error: "Invalid patch format after retry" }), { status: 500, headers: { "Content-Type": "application/json" } });
       }
