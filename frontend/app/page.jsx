@@ -133,11 +133,13 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (!sessionId) return;
+    // Only poll history when connected to gateway
+    if (!sessionId || connectionStatus.connected !== true) return;
+    
     refreshHistory();
     const interval = setInterval(refreshHistory, 5000);
     return () => clearInterval(interval);
-  }, [sessionId]);
+  }, [sessionId, connectionStatus.connected]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
