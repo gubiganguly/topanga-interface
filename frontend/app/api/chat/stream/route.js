@@ -62,11 +62,13 @@ export async function POST(req) {
       })
     });
   } catch (err) {
-    return new Response(err?.message || "Gateway fetch failed", { status: 500 });
+    console.error("Gateway Connection Error:", err.message);
+    return new Response(JSON.stringify({ error: "Gateway Connection Failed: " + err.message }), { status: 500 });
   }
 
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => "");
+    console.error("Gateway Error Response:", res.status, text);
     return new Response(text || `Gateway error (${res.status})`, { status: res.status || 500 });
   }
 
