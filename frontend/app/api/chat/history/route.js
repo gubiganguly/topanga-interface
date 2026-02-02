@@ -29,7 +29,18 @@ export async function GET(req) {
       return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ messages: data || [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    const debug = searchParams.get("debug") === "1";
+    let sessions = [];
+    if (debug) {
+      const { data: sdata } = await supabase
+        .from("chat_messages")
+        .select("session_id")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      sessions = (sdata || []).map(r => r.session_id);
+    }
+
+    return new Response(JSON.stringify({ session_id: sessionId, count: (data || []).length, messages: data || [], sessions }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ error: err?.message || "server error" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
