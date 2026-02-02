@@ -119,7 +119,7 @@ export default function Home() {
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage(e);
+      if (!sending) sendMessage(e);
     }
   };
 
@@ -214,9 +214,8 @@ export default function Home() {
               value={input}
               onChange={handleInput}
               onKeyDown={handleKeyDown}
-              disabled={sending}
-              placeholder={sending ? "Topanga is thinking..." : "Message Topanga..."}
-              className={`chat-input ${sending ? 'disabled' : ''}`}
+              placeholder={sending ? "Type your next message..." : "Message Topanga..."}
+              className="chat-input"
               rows={1}
             />
             <button type="submit" disabled={sending || !input.trim()} className="send-button">
