@@ -126,9 +126,12 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMsg.text, session_id: currentSessionId, role: "user" })
       });
+      
+      const saveJson = await saveRes.json();
       if (!saveRes.ok) {
-        throw new Error("Failed to save user message: " + (await saveRes.text()));
+        throw new Error("Failed to save user message: " + (saveJson.error || "unknown"));
       }
+      alert(`[DEBUG] Save OK. ID: ${saveJson.id}`);
 
       // 2. Start Stream (skip duplicate save)
       const res = await fetch(`/api/chat/stream`, {
