@@ -6,12 +6,7 @@ const BACKEND_URL = "";
 
 function getSessionId() {
   if (typeof window === "undefined") return null;
-  let id = localStorage.getItem("topanga_session_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("topanga_session_id", id);
-  }
-  return id;
+  return "agent:main:main";
 }
 
 export default function Home() {
@@ -21,7 +16,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState(null);
-  const [sessionFilter, setSessionFilter] = useState("all");
+  const [sessionFilter, setSessionFilter] = useState("agent:main:main");
   const [sessions, setSessions] = useState([]);
   const endRef = useRef(null);
 
@@ -55,7 +50,7 @@ export default function Home() {
   useEffect(() => {
     if (!sessionId) return;
     refreshHistory();
-    const interval = setInterval(refreshHistory, 60_000);
+    const interval = setInterval(refreshHistory, 10_000);
     return () => clearInterval(interval);
   }, [sessionId]);
 
