@@ -18,6 +18,7 @@ export default function Home() {
   const [sessionId, setSessionId] = useState(null);
   const [sessionFilter, setSessionFilter] = useState("agent:main:main");
   const [sessions, setSessions] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const endRef = useRef(null);
 
   // admin panel removed
@@ -27,6 +28,7 @@ export default function Home() {
   }, []);
 
   async function refreshHistory() {
+    setIsRefreshing(true);
     try {
       const data = await fetch(`/api/chat/history`).then(r => r.ok ? r.json() : null);
 
@@ -42,9 +44,13 @@ export default function Home() {
       if (combined.length) {
         combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         setMessages(combined.map(m => ({ role: m.role, text: m.text, session_id: m.session_id })));
-        setSessions(Array.from(sessionSet).sort());
       }
-    } catch {}
+      if (sessionSet.size) setSessions(Array.from(sessionSet).sort());
+    } catch (err) {
+      console.error("Refresh history failed", err);
+    } finally {
+      setIsRefreshing(false);
+    }
   }
 
   useEffect(() => {
@@ -150,11 +156,12 @@ export default function Home() {
           <div style={styles.headerRight}>
             <button
               type="button"
-              onClick={refreshHistory}
+              onClick={() => refreshHistory()}
               style={styles.refreshButton}
               title="Refresh chat history"
+              disabled={isRefreshing}
             >
-              Refresh
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </button>
             <select
               value={sessionFilter}
