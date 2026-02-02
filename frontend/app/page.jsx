@@ -23,11 +23,7 @@ export default function Home() {
   const [sessionId, setSessionId] = useState(null);
   const endRef = useRef(null);
 
-  const [adminPatch, setAdminPatch] = useState("");
-  const [adminMessage, setAdminMessage] = useState("");
-  const [adminLog, setAdminLog] = useState("");
-  const [proposal, setProposal] = useState(null);
-  const [adminBusy, setAdminBusy] = useState(false);
+  // admin panel removed
 
   useEffect(() => {
     setSessionId(getSessionId());
@@ -111,56 +107,7 @@ export default function Home() {
     }
   }
 
-  async function adminRequest(path, payload) {
-    setAdminBusy(true);
-    setAdminLog("");
-    try {
-      const res = await fetch(`/api/admin/${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload || {})
-      });
-      const text = await res.text();
-      setAdminLog(text || `HTTP ${res.status}`);
-      return { ok: res.ok, text };
-    } catch (err) {
-      setAdminLog(err?.message || "Admin request failed");
-      return { ok: false };
-    } finally {
-      setAdminBusy(false);
-    }
-  }
-
-  async function proposePatch() {
-    const result = await adminRequest("propose", { patch: adminPatch });
-    if (result.ok) {
-      try {
-        const data = JSON.parse(result.text);
-        setProposal(data);
-      } catch {}
-    }
-  }
-
-  async function applyPatch() {
-    if (!proposal?.id || !proposal?.hash) {
-      setAdminLog("No proposal to apply.");
-      return;
-    }
-    await adminRequest("apply", { id: proposal.id, hash: proposal.hash });
-  }
-
-  async function commitPatch() {
-    if (!adminMessage.trim()) {
-      setAdminLog("Commit message required.");
-      return;
-    }
-    await adminRequest("commit", { message: adminMessage.trim() });
-  }
-
-  async function pushPatch() {
-    await adminRequest("push", {});
-  }
-
+  // admin panel helpers removed
   return (
     <div style={styles.page}>
       <div style={styles.shell}>
@@ -195,64 +142,7 @@ export default function Home() {
           </button>
         </form>
 
-        <section style={styles.adminPanel}>
-          <div style={styles.adminTitle}>One‑click deploy</div>
-          <textarea
-            value={adminPatch}
-            onChange={(e) => setAdminPatch(e.target.value)}
-            placeholder="Describe the change you want... (e.g., Make buttons blue)"
-            style={styles.adminTextarea}
-          />
-          <div style={styles.adminRow}>
-            <button
-              disabled={adminBusy || !adminPatch.trim()}
-              onClick={async () => {
-                setAdminBusy(true);
-                setAdminLog("");
-                try {
-                  const res = await fetch("/api/admin/auto", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ instruction: adminPatch })
-                  });
-                  const text = await res.text();
-                  setAdminLog(text || `HTTP ${res.status}`);
-                } catch (err) {
-                  setAdminLog(err?.message || "Auto change failed");
-                } finally {
-                  setAdminBusy(false);
-                }
-              }}
-              style={styles.adminButton}
-            >
-              {adminBusy ? "Working..." : "Run Change"}
-            </button>
-          </div>
-          <details style={styles.adminDetails}>
-            <summary style={styles.adminSummary}>Advanced patch mode</summary>
-            <textarea
-              value={adminPatch}
-              onChange={(e) => setAdminPatch(e.target.value)}
-              placeholder="Paste a git patch here..."
-              style={styles.adminTextarea}
-            />
-            <div style={styles.adminRow}>
-              <button disabled={adminBusy || !adminPatch.trim()} onClick={proposePatch} style={styles.adminButton}>Propose</button>
-              <button disabled={adminBusy || !proposal?.id} onClick={applyPatch} style={styles.adminButton}>Apply</button>
-            </div>
-            <div style={styles.adminRow}>
-              <input
-                value={adminMessage}
-                onChange={(e) => setAdminMessage(e.target.value)}
-                placeholder="Commit message..."
-                style={styles.adminInput}
-              />
-              <button disabled={adminBusy || !adminMessage.trim()} onClick={commitPatch} style={styles.adminButton}>Commit</button>
-              <button disabled={adminBusy} onClick={pushPatch} style={styles.adminButton}>Push</button>
-            </div>
-          </details>
-          <pre style={styles.adminLog}>{adminLog || ""}</pre>
-        </section>
+        {/* admin panel removed */}
       </div>
     </div>
   );
@@ -347,69 +237,5 @@ const styles = {
     fontWeight: 600,
     cursor: "pointer"
   },
-  adminPanel: {
-    borderTop: "1px solid #eee",
-    padding: 16,
-    background: "#f9fafb",
-    display: "flex",
-    flexDirection: "column",
-    gap: 10
-  },
-  adminTitle: {
-    fontSize: 12,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    color: "#6b7280"
-  },
-  adminTextarea: {
-    width: "100%",
-    minHeight: 120,
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-    padding: 10,
-    fontFamily: "monospace",
-    fontSize: 12
-  },
-  adminRow: {
-    display: "flex",
-    gap: 8,
-    alignItems: "center",
-    flexWrap: "wrap"
-  },
-  adminInput: {
-    flex: 1,
-    minWidth: 200,
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-    padding: "8px 10px",
-    fontSize: 13
-  },
-  adminButton: {
-    padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid #2563eb",
-    background: "#2563eb",
-    color: "#fff",
-    fontWeight: 600,
-    cursor: "pointer"
-  },
-  adminLog: {
-    background: "#0f172a",
-    color: "#e2e8f0",
-    padding: 10,
-    borderRadius: 10,
-    minHeight: 40,
-    maxHeight: 180,
-    overflow: "auto",
-    fontSize: 12
-  },
-  adminDetails: {
-    marginTop: 6
-  },
-  adminSummary: {
-    cursor: "pointer",
-    fontSize: 12,
-    color: "#374151"
-  }
+  // admin styles removed
 };
