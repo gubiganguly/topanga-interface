@@ -18,6 +18,7 @@ export default function Home() {
   const [sessionId, setSessionId] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const endRef = useRef(null);
+  const touchStart = useRef(0);
 
   useEffect(() => {
     setSessionId(getSessionId());
@@ -135,6 +136,19 @@ export default function Home() {
     }
   };
 
+  const handleTouchStart = (e) => {
+    touchStart.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchStart.current) return;
+    const diff = e.touches[0].clientY - touchStart.current;
+    if (diff > 50) { // Swipe down threshold
+      dismissKeyboard();
+      touchStart.current = 0;
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="glass-shell">
@@ -163,7 +177,12 @@ export default function Home() {
         </header>
 
         {/* Chat Area */}
-        <div className="chat-area" onClick={dismissKeyboard} onTouchStart={dismissKeyboard}>
+        <div 
+          className="chat-area" 
+          onClick={dismissKeyboard} 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+        >
           <AnimatePresence>
             {messages.map((m, i) => {
               if (m.role === "assistant" && !m.content) return null;
@@ -225,7 +244,7 @@ export default function Home() {
               rows={1}
               enterKeyHint="send"
             />
-            <button type="submit" disabled={sending || !input.trim()} className="send-button">
+            <button type="submit" disabled={sending || !input.trim()} className="send-button" tabIndex="-1">
               <Send size={18} />
             </button>
           </div>
