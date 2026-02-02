@@ -119,10 +119,21 @@ export default function Home() {
     setSending(true);
 
     try {
+      // 1. Explicitly Save User Message
+      const saveRes = await fetch("/api/chat/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg.text, session_id: currentSessionId, role: "user" })
+      });
+      if (!saveRes.ok) {
+        throw new Error("Failed to save user message: " + (await saveRes.text()));
+      }
+
+      // 2. Start Stream (skip duplicate save)
       const res = await fetch(`/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.text, session_id: currentSessionId })
+        body: JSON.stringify({ message: userMsg.text, session_id: currentSessionId, skip_save_user: true })
       });
 
       if (!res.ok) {

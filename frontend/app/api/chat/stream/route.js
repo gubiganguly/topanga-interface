@@ -14,9 +14,10 @@ export async function POST(req) {
   const body = await req.json();
   const message = body.message;
   const session_id = body.session_id || "agent:main:main";
+  const skip_save_user = body.skip_save_user;
 
-  // 1. Insert User Message Immediately (Blocking)
-  if (session_id) {
+  // 1. Insert User Message Immediately (Blocking) - Only if not skipped
+  if (session_id && !skip_save_user) {
     // Fail loudly if DB is broken
     const supabase = getSupabase();
     const { data, error } = await supabase.from("chat_messages").insert([
