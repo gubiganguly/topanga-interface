@@ -108,9 +108,7 @@ export default function Home() {
           const data = line.replace(/^data:\s?/, "");
 
           if (data === "[DONE]") {
-            setSending(false);
-            refreshHistory();
-            return;
+            continue;
           }
 
           try {
@@ -132,6 +130,7 @@ export default function Home() {
           }
         }
       }
+      refreshHistory();
     } catch (err) {
       setMessages((m) => {
         const copy = [...m];

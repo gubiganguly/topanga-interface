@@ -13,6 +13,19 @@ function getSupabase() {
 export async function POST(req) {
   const { message, session_id } = await req.json();
 
+  // 1. Insert User Message Immediately (Blocking)
+  // This ensures the user message is in DB before the stream even starts.
+  if (session_id) {
+    try {
+      const supabase = getSupabase();
+      await supabase.from("chat_messages").insert([
+        { session_id, role: "user", content: message }
+      ]);
+    } catch (err) {
+      console.error("Failed to save user message", err);
+    }
+  }
+
   const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || "http://127.0.0.1:18789";
   const token = process.env.OPENCLAW_GATEWAY_TOKEN;
   const agentId = process.env.OPENCLAW_AGENT_ID || "main";
@@ -47,59 +60,70 @@ export async function POST(req) {
       })
     });
   } catch (err) {
-    const msg = err?.message || "Gateway fetch failed";
-    console.error("Gateway fetch failed", err);
-    return new Response(msg, { status: 500 });
+    return new Response(err?.message || "Gateway fetch failed", { status: 500 });
   }
 
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => "");
-    return new Response(text || `Gateway error (${res.status || 500})`, { status: res.status || 500 });
+    return new Response(text || `Gateway error (${res.status})`, { status: res.status || 500 });
   }
 
-  const contentType = res.headers.get("content-type") || "";
-  if (!contentType.includes("text/event-stream")) {
-    const text = await res.text().catch(() => "");
-    return new Response(text || "Gateway returned non-stream response", { status: 502 });
-  }
+  // 2. Custom Stream Proxy
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let fullAssistantResponse = "";
+  let buffer = "";
 
-  // tee stream to collect full assistant reply for persistence
-  const [stream1, stream2] = res.body.tee();
-  let full = "";
-  (async () => {
-    try {
-      const reader = stream2.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith("data:")) continue;
-          const data = line.replace(/^data:\s?/, "");
-          if (data === "[DONE]") break;
-          try {
-            const payload = JSON.parse(data);
-            const delta = payload.choices?.[0]?.delta?.content || "";
-            if (delta) full += delta;
-          } catch {}
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // Forward chunk to client immediately
+          controller.enqueue(value);
+
+          // Accumulate for DB
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+
+          for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith("data:")) continue;
+            const data = line.replace(/^data:\s?/, "");
+            if (data === "[DONE]") continue;
+
+            try {
+              const payload = JSON.parse(data);
+              const delta = payload.choices?.[0]?.delta?.content || "";
+              if (delta) fullAssistantResponse += delta;
+            } catch {}
+          }
         }
+      } catch (err) {
+        console.error("Stream error:", err);
+        controller.error(err);
+      } finally {
+        // 3. Save Assistant Message BEFORE closing the client stream
+        // This blocks the 'end' of the response until DB write is confirmed.
+        if (session_id) {
+          try {
+            const supabase = getSupabase();
+            await supabase.from("chat_messages").insert([
+              { session_id, role: "assistant", content: fullAssistantResponse || "(no reply)" }
+            ]);
+          } catch (err) {
+            console.error("Failed to save assistant message", err);
+          }
+        }
+        controller.close();
       }
-      if (session_id) {
-        const supabase = getSupabase();
-        await supabase.from("chat_messages").insert([
-          { session_id, role: "user", content: message },
-          { session_id, role: "assistant", content: full || "(no reply)" }
-        ]);
-      }
-    } catch {}
-  })();
+    }
+  });
 
-  return new Response(stream1, {
+  return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
