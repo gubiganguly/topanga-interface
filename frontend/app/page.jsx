@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, RefreshCw, Terminal, Sparkles } from "lucide-react";
+import { Send, RefreshCw, Terminal, Sparkles, Mic, MicOff } from "lucide-react";
 import "./globals.css";
 
 function getSessionId() {
@@ -17,12 +17,57 @@ export default function Home() {
   const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
   const endRef = useRef(null);
   const touchStart = useRef(0);
 
   useEffect(() => {
     setSessionId(getSessionId());
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+
+        recognition.onresult = (event) => {
+          let transcript = "";
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+          }
+          setInput((prev) => {
+             // Basic logic: if starting fresh, replace. If appending, append.
+             // But actually replacing works best for quick dictation.
+             return transcript;
+          });
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+      }
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert("Voice input not supported in this browser.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   async function refreshHistory() {
     setIsRefreshing(true);
@@ -235,11 +280,19 @@ export default function Home() {
         {/* Input Area */}
         <form onSubmit={sendMessage} className="input-area">
           <div className="input-wrapper">
+            <button 
+              type="button" 
+              onClick={toggleListening}
+              className={`mic-button ${isListening ? "listening" : ""}`}
+              title="Voice Input"
+            >
+              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+            </button>
             <textarea
               value={input}
               onChange={handleInput}
               onKeyDown={handleKeyDown}
-              placeholder={sending ? "Type your next message..." : "Message Topanga..."}
+              placeholder={isListening ? "Listening..." : (sending ? "Type your next message..." : "Message Topanga...")}
               className="chat-input"
               rows={1}
               enterKeyHint="send"
@@ -386,7 +439,7 @@ export default function Home() {
           background: rgba(0, 0, 0, 0.2);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 16px;
-          padding: 14px 50px 14px 20px;
+          padding: 14px 50px 14px 44px; /* Added left padding for mic */
           color: #fff;
           font-size: 16px;
           outline: none;
@@ -396,6 +449,30 @@ export default function Home() {
           max-height: 150px;
           font-family: inherit;
           line-height: 1.5;
+        }
+        .mic-button {
+          position: absolute;
+          left: 8px;
+          bottom: 8px;
+          background: transparent;
+          border: none;
+          color: rgba(255, 255, 255, 0.5);
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .mic-button:hover {
+          color: #fff;
+          background: rgba(255, 255, 255, 0.1);
+        }
+        .mic-button.listening {
+          color: #ef4444; /* Red for recording */
+          animation: pulse-ring 1.5s infinite;
         }
         .chat-input:focus {
           border-color: rgba(139, 92, 246, 0.5);
