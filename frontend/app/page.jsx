@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { motion, AnimatePresence } from "framer-motion";
+import { Send, RefreshCw, Terminal, Sparkles } from "lucide-react";
+import "./globals.css";
 
 function getSessionId() {
   if (typeof window === "undefined") return null;
@@ -27,28 +31,26 @@ export default function Home() {
       const data = res.ok ? await res.json() : null;
       
       if (Array.isArray(data?.messages)) {
-        // Simple replace - Gateway is truth
         const sorted = data.messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         setMessages(sorted);
       }
     } catch (err) {
-      console.error("Refresh history failed", err);
+      console.error("Refresh failed", err);
     } finally {
       setIsRefreshing(false);
     }
   }
 
-  // Auto-refresh periodically to catch terminal chats
   useEffect(() => {
     if (!sessionId) return;
     refreshHistory();
-    const interval = setInterval(refreshHistory, 5000); // Poll every 5s
+    const interval = setInterval(refreshHistory, 5000);
     return () => clearInterval(interval);
   }, [sessionId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, sending]);
 
   async function sendMessage(e) {
     e.preventDefault();
@@ -94,7 +96,6 @@ export default function Home() {
             const payload = JSON.parse(data);
             const delta = payload.choices?.[0]?.delta?.content || "";
             if (delta) {
-              // Update the last message (the pending bot message)
               setMessages(prev => {
                 const copy = [...prev];
                 const last = copy[copy.length - 1];
@@ -107,10 +108,7 @@ export default function Home() {
           } catch {}
         }
       }
-      
-      // Refresh to confirm final state from Gateway
       setTimeout(refreshHistory, 1000);
-
     } catch (err) {
       setMessages(prev => [...prev, { role: "assistant", content: `Error: ${err.message}`, created_at: new Date().toISOString() }]);
     } finally {
@@ -119,156 +117,272 @@ export default function Home() {
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.shell}>
-        <header style={styles.header}>
-          <div>
-            <div style={styles.title}>Topanga <span style={{fontSize: 10, background: "#000", color: "#fff", padding: "2px 4px", borderRadius: 4, verticalAlign: "middle"}}>Direct</span></div>
-            <div style={styles.subtitle}>Your snarky but warm AI</div>
+    <div className="page-container">
+      <div className="glass-shell">
+        
+        {/* Header */}
+        <header className="header">
+          <div className="header-left">
+            <div className="avatar-glow">
+              <Sparkles size={18} color="#fff" />
+            </div>
+            <div>
+              <h1 className="title">Topanga</h1>
+              <div className="subtitle">Online • v2.5</div>
+            </div>
           </div>
-          <div style={styles.headerRight}>
-            <button
-              type="button"
-              onClick={() => refreshHistory()}
-              style={styles.refreshButton}
-              title="Refresh chat history"
+          <div className="header-right">
+            <button 
+              onClick={refreshHistory} 
               disabled={isRefreshing}
+              className={`icon-button ${isRefreshing ? 'spin' : ''}`}
+              title="Refresh"
             >
-              {isRefreshing ? "Refreshing..." : "Refresh"}
+              <RefreshCw size={18} />
             </button>
-            <div style={styles.statusDot} title={sending ? "Thinking" : "Online"} />
           </div>
         </header>
 
-        <main style={styles.chat}>
-          {messages.map((m, i) => (
-            <div key={i} style={m.role === "user" ? styles.rowUser : styles.rowBot}>
-              <div style={m.role === "user" ? styles.bubbleUser : styles.bubbleBot}>
-                {m.content || (m.role === "assistant" && sending && i === messages.length - 1 ? "…" : "")}
-              </div>
-            </div>
-          ))}
-          <div ref={endRef} />
-        </main>
+        {/* Chat Area */}
+        <div className="chat-area">
+          <AnimatePresence>
+            {messages.map((m, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className={`message-row ${m.role === "user" ? "user-row" : "bot-row"}`}
+              >
+                <div className={`message-bubble ${m.role === "user" ? "user-bubble" : "bot-bubble"}`}>
+                  <div className="message-content prose">
+                    {m.role === "assistant" ? (
+                      <ReactMarkdown>{m.content || "..."}</ReactMarkdown>
+                    ) : (
+                      m.content
+                    )}
+                  </div>
+                  <div className="timestamp">
+                    {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          
+          {sending && messages[messages.length-1]?.content === "" && (
+             <motion.div 
+               initial={{ opacity: 0 }} 
+               animate={{ opacity: 1 }}
+               className="message-row bot-row"
+             >
+               <div className="message-bubble bot-bubble thinking-bubble">
+                 <div className="thinking-dot"></div>
+                 <div className="thinking-dot"></div>
+                 <div className="thinking-dot"></div>
+               </div>
+             </motion.div>
+          )}
+          <div ref={endRef} style={{ height: 1 }} />
+        </div>
 
-        <form onSubmit={sendMessage} style={styles.inputRow}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            style={styles.input}
-          />
-          <button type="submit" disabled={sending} style={styles.button}>
-            {sending ? "Sending..." : "Send"}
-          </button>
+        {/* Input Area */}
+        <form onSubmit={sendMessage} className="input-area">
+          <div className="input-wrapper">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Message Topanga..."
+              className="chat-input"
+            />
+            <button type="submit" disabled={sending || !input.trim()} className="send-button">
+              <Send size={18} />
+            </button>
+          </div>
         </form>
       </div>
+
+      <style jsx>{`
+        .page-container {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .glass-shell {
+          width: 100%;
+          max-width: 900px;
+          height: 85vh;
+          max-height: 900px;
+          background: rgba(15, 23, 42, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 24px;
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 24px;
+          background: rgba(255, 255, 255, 0.03);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .avatar-glow {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        }
+        .title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #fff;
+          margin: 0;
+          line-height: 1.2;
+        }
+        .subtitle {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+        .icon-button {
+          background: transparent;
+          border: none;
+          color: rgba(255, 255, 255, 0.6);
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+        .icon-button:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: #fff;
+        }
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .chat-area {
+          flex: 1;
+          overflow-y: auto;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .message-row {
+          display: flex;
+          width: 100%;
+        }
+        .user-row { justify-content: flex-end; }
+        .bot-row { justify-content: flex-start; }
+        
+        .message-bubble {
+          max-width: 80%;
+          padding: 14px 18px;
+          position: relative;
+        }
+        .user-bubble {
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: white;
+          border-radius: 20px 20px 4px 20px;
+          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        .bot-bubble {
+          background: rgba(255, 255, 255, 0.08);
+          color: #e2e8f0;
+          border-radius: 20px 20px 20px 4px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .thinking-bubble {
+          display: flex;
+          gap: 4px;
+          padding: 16px 20px;
+          align-items: center;
+        }
+        .timestamp {
+          font-size: 10px;
+          opacity: 0.5;
+          margin-top: 6px;
+          text-align: right;
+        }
+
+        .input-area {
+          padding: 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .input-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .chat-input {
+          width: 100%;
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 16px;
+          padding: 16px 50px 16px 20px;
+          color: #fff;
+          font-size: 16px;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+        .chat-input:focus {
+          border-color: rgba(139, 92, 246, 0.5);
+          background: rgba(0, 0, 0, 0.3);
+        }
+        .send-button {
+          position: absolute;
+          right: 8px;
+          background: #8b5cf6;
+          border: none;
+          color: white;
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.1s, background 0.2s;
+        }
+        .send-button:hover:not(:disabled) {
+          background: #7c3aed;
+          transform: scale(1.05);
+        }
+        .send-button:disabled {
+          background: rgba(255, 255, 255, 0.1);
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
+
+        @media (max-width: 640px) {
+          .page-container { padding: 0; }
+          .glass-shell { 
+            height: 100vh; 
+            max-height: none; 
+            border-radius: 0; 
+            border: none;
+          }
+          .message-bubble { max-width: 90%; }
+        }
+      `}</style>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "radial-gradient(1200px 600px at 10% 10%, #ffe3e3, #f5f6ff 40%, #eaf7ff 70%)",
-    padding: 24
-  },
-  shell: {
-    width: "min(900px, 95vw)",
-    height: "min(80vh, 820px)",
-    background: "rgba(255,255,255,0.85)",
-    border: "1px solid #e6e6e6",
-    borderRadius: 20,
-    boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    backdropFilter: "blur(8px)"
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "18px 22px",
-    borderBottom: "1px solid #eee",
-    background: "linear-gradient(90deg, #ffffff, #f3f6ff)"
-  },
-  headerRight: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12
-  },
-  title: { fontSize: 22, fontWeight: 700 },
-  subtitle: { fontSize: 12, color: "#666" },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    background: "#19c37d",
-    boxShadow: "0 0 0 4px rgba(25,195,125,0.15)"
-  },
-  refreshButton: {
-    padding: "6px 10px",
-    borderRadius: 8,
-    border: "1px solid #2563eb",
-    background: "#2563eb",
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer"
-  },
-  chat: {
-    flex: 1,
-    overflowY: "auto",
-    padding: 22,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12
-  },
-  rowUser: { display: "flex", justifyContent: "flex-end" },
-  rowBot: { display: "flex", justifyContent: "flex-start" },
-  bubbleUser: {
-    maxWidth: "75%",
-    padding: "12px 14px",
-    borderRadius: "16px 16px 4px 16px",
-    background: "#111827",
-    color: "#fff",
-    fontSize: 15,
-    lineHeight: 1.4
-  },
-  bubbleBot: {
-    maxWidth: "75%",
-    padding: "12px 14px",
-    borderRadius: "16px 16px 16px 4px",
-    background: "#f3f4f6",
-    color: "#111827",
-    fontSize: 15,
-    lineHeight: 1.4
-  },
-  inputRow: {
-    display: "flex",
-    gap: 10,
-    padding: 16,
-    borderTop: "1px solid #eee",
-    background: "#fff"
-  },
-  input: {
-    flex: 1,
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid #ddd",
-    fontSize: 15
-  },
-  button: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: "none",
-    background: "#2563eb",
-    color: "#fff",
-    fontWeight: 600,
-    cursor: "pointer"
-  }
-};
