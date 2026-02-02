@@ -187,6 +187,16 @@ export default function Home() {
     }
   }
 
+  async function testDb() {
+    try {
+      const res = await fetch("/api/test-db", { method: "POST" });
+      const data = await res.json();
+      alert(JSON.stringify(data, null, 2));
+    } catch (err) {
+      alert("Test failed: " + err.message);
+    }
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.shell}>
@@ -252,6 +262,11 @@ export default function Home() {
         <div style={styles.debug}>
           <details>
             <summary>Debug Info</summary>
+            <div style={{ marginBottom: 10 }}>
+              <button onClick={testDb} style={{...styles.button, fontSize: 10, padding: "4px 8px"}}>
+                Test Database Connection
+              </button>
+            </div>
             <pre>{JSON.stringify({ ...debugInfo, stateCount: messages.length }, null, 2)}</pre>
           </details>
         </div>
