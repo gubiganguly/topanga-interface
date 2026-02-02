@@ -97,20 +97,20 @@ function Creature({ analyser, isListening }) {
     // More dramatic distortion when listening
     let targetDistort;
     if (isListening) {
-      // Higher base distortion + more audio reactivity for shapeshifting
-      targetDistort = 0.5 + (smoothAudio / 255) * 0.7;
-      // Add some time-based wobble for organic feel
-      targetDistort += Math.sin(time * 3) * 0.1;
+      // Much higher distortion based on audio - gets very spiky when loud
+      targetDistort = 0.6 + (smoothAudio / 255) * 1.2;
+      // Add rapid time-based wobble for chaotic feel
+      targetDistort += Math.sin(time * 8) * 0.2 * (smoothAudio / 255 + 0.3);
     } else {
       // Gentle idle distortion
-      targetDistort = 0.3 + Math.sin(time * 2) * 0.1;
+      targetDistort = 0.4 + Math.sin(time * 1.5) * 0.1;
     }
-    materialRef.current.distort = THREE.MathUtils.lerp(materialRef.current.distort, targetDistort, 0.08);
+    materialRef.current.distort = THREE.MathUtils.lerp(materialRef.current.distort, targetDistort, 0.15);
 
     // === COLOR SHIFTING ===
-    const baseColor = new THREE.Color("#8b5cf6"); // Purple
-    const activeColor = new THREE.Color("#3b82f6"); // Electric Blue
-    const intenseColor = new THREE.Color("#60a5fa"); // Brighter blue for high audio
+    const baseColor = new THREE.Color("#22c55e"); // Bright green
+    const activeColor = new THREE.Color("#4ade80"); // Vivid green
+    const intenseColor = new THREE.Color("#86efac"); // Bright mint for high audio
 
     let color;
     if (isListening) {
@@ -127,7 +127,7 @@ function Creature({ analyser, isListening }) {
     materialRef.current.color = color;
 
     // === ANIMATION SPEED ===
-    materialRef.current.speed = isListening ? 3 + (smoothAudio / 255) * 6 : 2;
+    materialRef.current.speed = isListening ? 3 + (smoothAudio / 255) * 10 : 1.5;
 
     // === POSITION: MOVE UP WHEN LISTENING ===
     const listeningPos = new THREE.Vector3(0, 0.6, 0); // Move up when listening
@@ -175,12 +175,14 @@ function Creature({ analyser, isListening }) {
         <Sphere ref={meshRef} args={[1, 64, 64]} position={[0, 0, 0]}>
           <MeshDistortMaterial
             ref={materialRef}
-            color="#8b5cf6"
-            envMapIntensity={0.5}
+            color="#22c55e"
+            emissive="#22c55e"
+            emissiveIntensity={0.3}
+            envMapIntensity={1}
             clearcoat={1}
             clearcoatRoughness={0}
-            metalness={0.15}
-            roughness={0.1}
+            metalness={0.4}
+            roughness={0.02}
           />
         </Sphere>
       </Float>
@@ -223,20 +225,20 @@ export default function Scene3D({ analyser, isListening }) {
   return (
     <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
       <ResponsiveCamera />
-      <ambientLight intensity={isListening ? 0.6 : 0.5} />
+      <ambientLight intensity={isListening ? 0.8 : 0.7} />
       <ReactiveLight
         analyser={analyser}
         isListening={isListening}
         position={[10, 10, 10]}
-        baseColor="#a78bfa"
-        baseIntensity={1}
+        baseColor="#4ade80"
+        baseIntensity={2}
       />
       <ReactiveLight
         analyser={analyser}
         isListening={isListening}
         position={[-10, -10, -10]}
-        baseColor="#3b82f6"
-        baseIntensity={0.5}
+        baseColor="#22c55e"
+        baseIntensity={1}
       />
 
       <Creature analyser={analyser} isListening={isListening} />
