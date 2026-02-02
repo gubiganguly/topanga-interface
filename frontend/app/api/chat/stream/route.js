@@ -80,6 +80,7 @@ export async function POST(req) {
   // 2. Custom Stream Proxy
   const reader = res.body.getReader();
   const decoder = new TextDecoder("utf-8");
+  const encoder = new TextEncoder(); // Add encoder
   let fullAssistantResponse = "";
   let buffer = "";
 
@@ -122,9 +123,15 @@ export async function POST(req) {
             const { error } = await supabase.from("chat_messages").insert([
               { session_id, role: "assistant", content: fullAssistantResponse || "(no reply)", created_at: new Date().toISOString() }
             ]);
-            if (error) console.error("Supabase Assistant Insert Error:", error);
+            if (error) {
+              console.error("Supabase Assistant Insert Error:", error);
+              const errJson = JSON.stringify({ choices: [{ delta: { content: `\n\n[SYSTEM ERROR: Database Save Failed - ${error.message}]` } }] });
+              controller.enqueue(encoder.encode(`data: ${errJson}\n\n`));
+            }
           } catch (err) {
             console.error("Failed to save assistant message", err);
+            const errJson = JSON.stringify({ choices: [{ delta: { content: `\n\n[SYSTEM ERROR: Save Exception - ${err.message}]` } }] });
+            controller.enqueue(encoder.encode(`data: ${errJson}\n\n`));
           }
         }
         controller.close();
