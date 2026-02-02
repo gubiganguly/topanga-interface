@@ -30,7 +30,7 @@ export default function Home() {
   async function refreshHistory() {
     setIsRefreshing(true);
     try {
-      const data = await fetch(`/api/chat/history`).then(r => r.ok ? r.json() : null);
+      const data = await fetch(`/api/chat/history`, { cache: "no-store" }).then(r => r.ok ? r.json() : null);
 
       const combined = [];
       const sessionSet = new Set();

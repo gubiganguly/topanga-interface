@@ -19,7 +19,8 @@ export async function GET(req) {
     let query = supabase
       .from("chat_messages")
       .select("role, content, created_at, session_id")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: false })
+      .limit(200);
 
     if (sessionId) {
       query = query.eq("session_id", sessionId);
@@ -46,7 +47,13 @@ export async function GET(req) {
       } catch {}
     }
 
-    return new Response(JSON.stringify({ session_id: sessionId, count: (data || []).length, messages: data || [], sessions, supabase_host: supabaseHost }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ session_id: sessionId, count: (data || []).length, messages: data || [], sessions, supabase_host: supabaseHost }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, max-age=0"
+      }
+    });
   } catch (err) {
     return new Response(JSON.stringify({ error: err?.message || "server error" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
