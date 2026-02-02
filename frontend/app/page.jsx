@@ -196,27 +196,61 @@ export default function Home() {
         </form>
 
         <section style={styles.adminPanel}>
-          <div style={styles.adminTitle}>Self‑edit tools</div>
+          <div style={styles.adminTitle}>One‑click deploy</div>
           <textarea
             value={adminPatch}
             onChange={(e) => setAdminPatch(e.target.value)}
-            placeholder="Paste a git patch here..."
+            placeholder="Describe the change you want... (e.g., Make buttons blue)"
             style={styles.adminTextarea}
           />
           <div style={styles.adminRow}>
-            <button disabled={adminBusy || !adminPatch.trim()} onClick={proposePatch} style={styles.adminButton}>Propose</button>
-            <button disabled={adminBusy || !proposal?.id} onClick={applyPatch} style={styles.adminButton}>Apply</button>
+            <button
+              disabled={adminBusy || !adminPatch.trim()}
+              onClick={async () => {
+                setAdminBusy(true);
+                setAdminLog("");
+                try {
+                  const res = await fetch("/api/admin/auto", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ instruction: adminPatch })
+                  });
+                  const text = await res.text();
+                  setAdminLog(text || `HTTP ${res.status}`);
+                } catch (err) {
+                  setAdminLog(err?.message || "Auto change failed");
+                } finally {
+                  setAdminBusy(false);
+                }
+              }}
+              style={styles.adminButton}
+            >
+              {adminBusy ? "Working..." : "Run Change"}
+            </button>
           </div>
-          <div style={styles.adminRow}>
-            <input
-              value={adminMessage}
-              onChange={(e) => setAdminMessage(e.target.value)}
-              placeholder="Commit message..."
-              style={styles.adminInput}
+          <details style={styles.adminDetails}>
+            <summary style={styles.adminSummary}>Advanced patch mode</summary>
+            <textarea
+              value={adminPatch}
+              onChange={(e) => setAdminPatch(e.target.value)}
+              placeholder="Paste a git patch here..."
+              style={styles.adminTextarea}
             />
-            <button disabled={adminBusy || !adminMessage.trim()} onClick={commitPatch} style={styles.adminButton}>Commit</button>
-            <button disabled={adminBusy} onClick={pushPatch} style={styles.adminButton}>Push</button>
-          </div>
+            <div style={styles.adminRow}>
+              <button disabled={adminBusy || !adminPatch.trim()} onClick={proposePatch} style={styles.adminButton}>Propose</button>
+              <button disabled={adminBusy || !proposal?.id} onClick={applyPatch} style={styles.adminButton}>Apply</button>
+            </div>
+            <div style={styles.adminRow}>
+              <input
+                value={adminMessage}
+                onChange={(e) => setAdminMessage(e.target.value)}
+                placeholder="Commit message..."
+                style={styles.adminInput}
+              />
+              <button disabled={adminBusy || !adminMessage.trim()} onClick={commitPatch} style={styles.adminButton}>Commit</button>
+              <button disabled={adminBusy} onClick={pushPatch} style={styles.adminButton}>Push</button>
+            </div>
+          </details>
           <pre style={styles.adminLog}>{adminLog || ""}</pre>
         </section>
       </div>
@@ -369,5 +403,13 @@ const styles = {
     maxHeight: 180,
     overflow: "auto",
     fontSize: 12
+  },
+  adminDetails: {
+    marginTop: 6
+  },
+  adminSummary: {
+    cursor: "pointer",
+    fontSize: 12,
+    color: "#374151"
   }
 };
