@@ -1,5 +1,5 @@
 import http from "node:http";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -75,12 +75,27 @@ async function ensureCleanRepo() {
   }
 }
 
+function runGitWithInput(args, input) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", ["-C", REPO_PATH, ...args]);
+    let stderr = "";
+    child.stderr.on("data", d => (stderr += d.toString()));
+    child.on("error", reject);
+    child.on("close", code => {
+      if (code === 0) return resolve();
+      reject(new Error(stderr || `git ${args.join(" ")} failed`));
+    });
+    child.stdin.write(input);
+    child.stdin.end();
+  });
+}
+
 async function applyPatch(patch) {
-  await execFileAsync("git", ["-C", REPO_PATH, "apply", "--whitespace=fix"], { input: patch });
+  await runGitWithInput(["apply", "--whitespace=fix"], patch);
 }
 
 async function checkPatch(patch) {
-  await execFileAsync("git", ["-C", REPO_PATH, "apply", "--check"], { input: patch });
+  await runGitWithInput(["apply", "--check"], patch);
 }
 
 async function getDiff() {
