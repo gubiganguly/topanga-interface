@@ -53,12 +53,15 @@ export default function Home() {
         // Keep any pending messages from local state that aren't in server list yet
         const localPending = prev.filter(m => m.pending);
         
-        // Deduplicate: If a pending message is now in serverMessages (by content match), drop it
+        // Deduplicate: If a pending message is now in serverMessages (by content/role), drop it
+        // UNLESS it is very new (< 5 seconds), in which case keep it to prevent flicker
         const uniquePending = localPending.filter(p => {
+          const isFresh = (Date.now() - (p.createdAt || 0)) < 5000;
+          if (isFresh) return true; // Force keep new messages
+
           const matched = serverMessages.some(s => 
             s.role === p.role && 
             s.text.trim() === p.text.trim() && 
-            // Only match if server msg is recent (last 2 mins) to avoid false positives
             (new Date().getTime() - new Date(s.created_at).getTime() < 120000)
           );
           return !matched;
@@ -72,6 +75,7 @@ export default function Home() {
       setDebugInfo({
         status: res.status,
         count: serverMessages.length,
+        pendingCount: prev => prev.filter(m => m.pending).length, // approximate
         lastFetch: new Date().toLocaleTimeString(),
         sessionId: sid
       });
@@ -106,8 +110,8 @@ export default function Home() {
     const tempId = Date.now();
     
     // Add optimistic messages
-    const userMsg = { role: "user", text: input.trim(), session_id: currentSessionId, pending: true, tempId: `u-${tempId}` };
-    const botMsg = { role: "assistant", text: "", session_id: currentSessionId, pending: true, tempId: `b-${tempId}` };
+    const userMsg = { role: "user", text: input.trim(), session_id: currentSessionId, pending: true, tempId: `u-${tempId}`, createdAt: Date.now() };
+    const botMsg = { role: "assistant", text: "", session_id: currentSessionId, pending: true, tempId: `b-${tempId}`, createdAt: Date.now() };
     
     setMessages((m) => [...m, userMsg, botMsg]);
     setInput("");
