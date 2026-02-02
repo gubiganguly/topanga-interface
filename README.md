@@ -23,6 +23,10 @@ Set these in Vercel project settings:
 - `OPENCLAW_AGENT_ID` (default: main)
 - `OPENCLAW_SESSION_KEY` (default: agent:main:main)
 
+### Admin self-edit (optional)
+- `ADMIN_API_URL` (e.g. `https://admin-api.topangabot.com`)
+- `ADMIN_API_TOKEN` (local admin server token)
+
 ## Notes
 - Frontend API routes call OpenClaw Gateway `/v1/chat/completions`.
 - Streaming replies via `/api/chat/stream`.
