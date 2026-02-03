@@ -15,48 +15,28 @@ export async function POST(request) {
       );
     }
 
-    // Map Realtime tool actions to OpenClaw tools
-    let tool;
-    let args;
+    // Build a message for Topanga to execute
+    let message;
 
     switch (action) {
       case "message.send":
-        tool = "message";
-        args = {
-          action: "send",
-          to: params.to,
-          message: params.message,
-          channel: params.channel || "imessage"
-        };
+        message = `Send a message to ${params.to}: "${params.message}"${params.channel ? ` via ${params.channel}` : ""}`;
         break;
 
       case "command.run":
-        tool = "exec";
-        args = {
-          command: params.command
-        };
+        message = `Run this shell command and tell me the result: ${params.command}`;
         break;
 
       case "search.web":
-        tool = "web_search";
-        args = {
-          query: params.query
-        };
+        message = `Search the web for: ${params.query}`;
         break;
 
       case "file.write":
-        tool = "write";
-        args = {
-          path: params.path,
-          content: params.content
-        };
+        message = `Write this content to the file ${params.path}:\n\n${params.content}`;
         break;
 
       case "file.read":
-        tool = "read";
-        args = {
-          path: params.path
-        };
+        message = `Read and show me the contents of the file: ${params.path}`;
         break;
 
       default:
@@ -66,17 +46,26 @@ export async function POST(request) {
         );
     }
 
-    // Call OpenClaw Gateway /tools/invoke endpoint
-    const response = await fetch(`${GATEWAY_URL}/tools/invoke`, {
+    // Send to Topanga via chat completions
+    const response = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${GATEWAY_TOKEN}`,
       },
       body: JSON.stringify({
-        tool,
-        args,
-        sessionKey: "main"
+        model: "anthropic/claude-haiku",
+        messages: [
+          {
+            role: "system",
+            content: "You are executing a command from the Realtime voice interface. Execute the request and provide a brief response. Be concise."
+          },
+          {
+            role: "user", 
+            content: message
+          }
+        ],
+        stream: false
       }),
     });
 
@@ -94,9 +83,12 @@ export async function POST(request) {
       );
     }
 
+    // Extract the assistant's response
+    const assistantMessage = data.choices?.[0]?.message?.content || "Request completed";
+
     return NextResponse.json({
       success: true,
-      result: data.result || data
+      result: assistantMessage
     });
   } catch (error) {
     console.error("Gateway proxy error:", error);
