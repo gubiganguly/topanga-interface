@@ -525,7 +525,7 @@ export default function VoiceView({
           position: fixed;
           bottom: 180px;
           left: 50%;
-          transform: translateX(calc(-50% - 28px));
+          transform: translateX(-50%);
           z-index: 10;
           display: flex;
           flex-direction: row;
@@ -655,7 +655,7 @@ export default function VoiceView({
           .transcript-container-above {
             max-width: 320px;
             bottom: 160px;
-            transform: translateX(calc(-50% - 26px));
+            transform: translateX(-50%);
           }
 
           .send-message-btn {
@@ -703,7 +703,7 @@ export default function VoiceView({
             max-width: 280px;
             bottom: 140px;
             gap: 8px;
-            transform: translateX(calc(-50% - 22px));
+            transform: translateX(-50%);
           }
 
           .send-message-btn {
