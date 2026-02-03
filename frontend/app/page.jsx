@@ -225,6 +225,34 @@ export default function Home() {
           } catch {}
         }
       }
+      // Get the final bot response for TTS
+      const finalMessages = await new Promise(resolve => {
+        setMessages(prev => {
+          resolve(prev);
+          return prev;
+        });
+      });
+      const lastMessage = finalMessages[finalMessages.length - 1];
+      
+      // Generate TTS audio for voice view
+      if (activeView === "voice" && lastMessage?.role === "assistant" && lastMessage?.content) {
+        try {
+          const ttsRes = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: lastMessage.content })
+          });
+          
+          if (ttsRes.ok) {
+            const audioBlob = await ttsRes.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            setAudioUrl(audioUrl);
+          }
+        } catch (ttsErr) {
+          console.error("TTS failed:", ttsErr);
+        }
+      }
+      
       setTimeout(refreshHistory, 1000);
     } catch (err) {
       setMessages(prev => [...prev, { role: "assistant", content: `Error: ${err.message}`, created_at: new Date().toISOString() }]);
