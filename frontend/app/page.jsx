@@ -308,6 +308,9 @@ export default function Home() {
   return (
     <div className="app-container">
       <main className="main-content">
+        {/* Version indicator */}
+        <div className="version-indicator">v1.0.1</div>
+        
         {/* Header Overlay for Status */}
         <div className="status-overlay">
            <button 

@@ -24,6 +24,17 @@ body {
   box-sizing: border-box;
 }
 
+/* Version indicator */
+.version-indicator {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  z-index: 100;
+  font-family: monospace;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
