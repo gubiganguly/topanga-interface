@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, RefreshCw, Wifi, WifiOff, X } from "lucide-react";
 import ChatView from "../components/ChatView";
 import VoiceView from "../components/VoiceView";
+import RealtimeView from "../components/RealtimeView";
 import StocksView from "../components/StocksView";
 import "./globals.css";
 
@@ -383,7 +384,7 @@ export default function Home() {
           )}
 
           {activeView === "stocks" && (
-            <motion.div 
+            <motion.div
               key="stocks"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -392,6 +393,19 @@ export default function Home() {
               className="view-wrapper"
             >
               <StocksView />
+            </motion.div>
+          )}
+
+          {activeView === "realtime" && (
+            <motion.div
+              key="realtime"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.4 }}
+              className="view-wrapper"
+            >
+              <RealtimeView setActiveView={setActiveView} />
             </motion.div>
           )}
         </AnimatePresence>
