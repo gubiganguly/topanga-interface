@@ -53,6 +53,7 @@ export default function RealtimeView({ setActiveView }) {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationRef = useRef(null);
+  const remoteAudioRef = useRef(null);
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -75,6 +76,11 @@ export default function RealtimeView({ setActiveView }) {
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+      remoteAudioRef.current.remove();
+      remoteAudioRef.current = null;
     }
   }, []);
 
@@ -206,11 +212,20 @@ export default function RealtimeView({ setActiveView }) {
       const audioTrack = stream.getAudioTracks()[0];
       pc.addTrack(audioTrack, stream);
 
-      // Handle incoming audio
+      // Handle incoming audio - create persistent audio element
       const audioEl = document.createElement("audio");
       audioEl.autoplay = true;
+      audioEl.playsInline = true;
+      document.body.appendChild(audioEl);
+      remoteAudioRef.current = audioEl;
+
       pc.ontrack = (e) => {
+        console.log("[Realtime] Received remote audio track", e.streams[0]);
         audioEl.srcObject = e.streams[0];
+        // Ensure playback starts (handles autoplay policy)
+        audioEl.play().catch(err => {
+          console.warn("[Realtime] Audio autoplay blocked:", err);
+        });
       };
 
       // Create data channel for events
@@ -219,6 +234,26 @@ export default function RealtimeView({ setActiveView }) {
 
       dc.onopen = () => {
         setStatus(STATUS.CONNECTED);
+
+        // Configure session for audio input/output
+        dc.send(JSON.stringify({
+          type: "session.update",
+          session: {
+            modalities: ["text", "audio"],
+            voice: "alloy",
+            input_audio_format: "pcm16",
+            output_audio_format: "pcm16",
+            input_audio_transcription: {
+              model: "whisper-1"
+            },
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500
+            }
+          }
+        }));
       };
 
       dc.onmessage = (e) => {
