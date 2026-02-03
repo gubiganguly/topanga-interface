@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, MessageSquare } from "lucide-react";
+import { Send, MessageSquare, Volume2 } from "lucide-react";
 import dynamic from "next/dynamic";
 
 // Dynamically import the 3D scene to avoid SSR issues with Three.js
@@ -23,28 +23,28 @@ const Scene3D = dynamic(() => import("./Scene3D"), {
 });
 
 // Floating orb component
-function FloatingOrb({ delay, duration, size, distance, isListening, audioLevel }) {
+function FloatingOrb({ delay, duration, size, distance, isListening, audioLevel, isPlayingAudio }) {
   return (
     <motion.div
-      className="floating-orb"
+      className={`floating-orb ${isPlayingAudio ? 'playing-audio' : ''}`}
       style={{
         width: size,
         height: size,
       }}
       initial={{ opacity: 0 }}
       animate={{
-        opacity: isListening ? 0.6 + audioLevel * 0.4 : 0.3,
-        scale: isListening ? 1 + audioLevel * 0.5 : 1,
+        opacity: isPlayingAudio ? 0.8 : isListening ? 0.6 + audioLevel * 0.4 : 0.3,
+        scale: isPlayingAudio ? 1.2 : isListening ? 1 + audioLevel * 0.5 : 1,
         rotate: 360,
       }}
       transition={{
         opacity: { duration: 0.3 },
-        scale: { duration: 0.1 },
-        rotate: { duration: duration, repeat: Infinity, ease: "linear", delay: delay }
+        scale: { duration: isPlayingAudio ? 0.5 : 0.1 },
+        rotate: { duration: isPlayingAudio ? duration * 0.6 : duration, repeat: Infinity, ease: "linear", delay: delay }
       }}
     >
       <motion.div
-        className="orb-inner"
+        className={`orb-inner ${isPlayingAudio ? 'orb-inner-speaking' : ''}`}
         style={{
           transform: `translateY(-${distance}px)`,
         }}
@@ -60,14 +60,18 @@ export default function VoiceView({
   input,
   setInput,
   sendMessage,
-  sending
+  sending,
+  audioUrl,
+  setAudioUrl
 }) {
   const [audioContext, setAudioContext] = useState(null);
   const [analyser, setAnalyser] = useState(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const animationRef = useRef(null);
   const dataArrayRef = useRef(new Uint8Array(64));
+  const audioRef = useRef(null);
 
   // Setup Audio Context when listening starts
   useEffect(() => {
@@ -88,6 +92,37 @@ export default function VoiceView({
         .catch(err => console.error("Error accessing microphone:", err));
     }
   }, [isListening, audioContext]);
+
+  // TTS Audio playback
+  useEffect(() => {
+    if (audioUrl) {
+      // Create and play audio
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onplay = () => setIsPlayingAudio(true);
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        setAudioUrl(null);
+      };
+      audio.onerror = () => {
+        console.error("Error playing audio:", audioUrl);
+        setIsPlayingAudio(false);
+        setAudioUrl(null);
+      };
+
+      audio.play().catch(err => {
+        console.error("Audio playback failed:", err);
+        setIsPlayingAudio(false);
+        setAudioUrl(null);
+      });
+
+      return () => {
+        audio.pause();
+        audio.src = "";
+      };
+    }
+  }, [audioUrl, setAudioUrl]);
 
   // Audio level monitoring for button animation
   useEffect(() => {
@@ -129,40 +164,40 @@ export default function VoiceView({
       <div className="voice-controls">
         {/* Outer rotating gradient ring */}
         <motion.div
-          className="gradient-ring-outer"
+          className={`gradient-ring-outer ${isPlayingAudio ? 'ring-speaking' : ''}`}
           animate={{
             rotate: 360,
-            opacity: isListening ? 0.8 : 0.3,
+            opacity: isPlayingAudio ? 0.9 : isListening ? 0.8 : 0.3,
           }}
           transition={{
-            rotate: { duration: 8, repeat: Infinity, ease: "linear" },
+            rotate: { duration: isPlayingAudio ? 5 : 8, repeat: Infinity, ease: "linear" },
             opacity: { duration: 0.3 }
           }}
         />
 
         {/* Inner rotating gradient ring (opposite direction) */}
         <motion.div
-          className="gradient-ring-inner"
+          className={`gradient-ring-inner ${isPlayingAudio ? 'ring-speaking' : ''}`}
           animate={{
             rotate: -360,
-            opacity: isListening ? 0.6 : 0.2,
+            opacity: isPlayingAudio ? 0.7 : isListening ? 0.6 : 0.2,
           }}
           transition={{
-            rotate: { duration: 6, repeat: Infinity, ease: "linear" },
+            rotate: { duration: isPlayingAudio ? 4 : 6, repeat: Infinity, ease: "linear" },
             opacity: { duration: 0.3 }
           }}
         />
 
         {/* Floating orbs */}
         <div className="orbs-container">
-          <FloatingOrb delay={0} duration={4} size={80} distance={45} isListening={isListening} audioLevel={audioLevel} />
-          <FloatingOrb delay={1.3} duration={5} size={80} distance={45} isListening={isListening} audioLevel={audioLevel} />
-          <FloatingOrb delay={2.6} duration={4.5} size={80} distance={45} isListening={isListening} audioLevel={audioLevel} />
+          <FloatingOrb delay={0} duration={4} size={80} distance={45} isListening={isListening} audioLevel={audioLevel} isPlayingAudio={isPlayingAudio} />
+          <FloatingOrb delay={1.3} duration={5} size={80} distance={45} isListening={isListening} audioLevel={audioLevel} isPlayingAudio={isPlayingAudio} />
+          <FloatingOrb delay={2.6} duration={4.5} size={80} distance={45} isListening={isListening} audioLevel={audioLevel} isPlayingAudio={isPlayingAudio} />
         </div>
 
-        {/* Pulsing rings when active */}
+        {/* Pulsing rings when listening */}
         <AnimatePresence>
-          {isListening && (
+          {isListening && !isPlayingAudio && (
             <>
               {[0, 0.5, 1].map((delay, i) => (
                 <motion.div
@@ -172,6 +207,24 @@ export default function VoiceView({
                   animate={{ scale: 2.5, opacity: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay }}
+                />
+              ))}
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Pulsing rings when speaking (TTS) */}
+        <AnimatePresence>
+          {isPlayingAudio && (
+            <>
+              {[0, 0.4, 0.8].map((delay, i) => (
+                <motion.div
+                  key={`speak-${i}`}
+                  className="pulse-ring pulse-ring-speaking"
+                  initial={{ scale: 0.5, opacity: 0.6 }}
+                  animate={{ scale: 2.5, opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay }}
                 />
               ))}
             </>
@@ -264,23 +317,39 @@ export default function VoiceView({
           className="status-text"
           initial={false}
           animate={{
-            opacity: isListening ? 1 : 0.6,
-            y: isListening ? 0 : 5,
+            opacity: isListening || isPlayingAudio ? 1 : 0.6,
+            y: isListening || isPlayingAudio ? 0 : 5,
           }}
           transition={{ duration: 0.3 }}
         >
           <AnimatePresence mode="wait">
             <motion.span
-              key={isListening ? "listening" : "tap"}
+              key={isPlayingAudio ? "speaking" : isListening ? "listening" : "tap"}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
+              className={isPlayingAudio ? "speaking-status" : ""}
             >
-              {isListening ? "Listening..." : "Tap to wake"}
+              {isPlayingAudio ? "Speaking..." : isListening ? "Listening..." : "Tap to wake"}
             </motion.span>
           </AnimatePresence>
         </motion.div>
+
+        {/* Speaker indicator when audio is playing */}
+        <AnimatePresence>
+          {isPlayingAudio && (
+            <motion.div
+              className="speaker-indicator"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Volume2 size={16} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </div>
 
@@ -402,6 +471,28 @@ export default function VoiceView({
           pointer-events: none;
         }
 
+        .ring-speaking.gradient-ring-outer {
+          background: conic-gradient(
+            from 0deg,
+            rgba(52, 211, 153, 0.8),
+            rgba(59, 130, 246, 0.6),
+            rgba(52, 211, 153, 0.2),
+            rgba(59, 130, 246, 0.6),
+            rgba(52, 211, 153, 0.8)
+          );
+        }
+
+        .ring-speaking.gradient-ring-inner {
+          background: conic-gradient(
+            from 180deg,
+            rgba(59, 130, 246, 0.6),
+            rgba(52, 211, 153, 0.4),
+            transparent,
+            rgba(52, 211, 153, 0.4),
+            rgba(59, 130, 246, 0.6)
+          );
+        }
+
         .orbs-container {
           position: absolute;
           width: 100px;
@@ -442,6 +533,10 @@ export default function VoiceView({
           border-radius: 50%;
           border: 2px solid rgba(139, 92, 246, 0.5);
           pointer-events: none;
+        }
+
+        .pulse-ring-speaking {
+          border-color: rgba(52, 211, 153, 0.5);
         }
 
         .voice-toggle-btn {
@@ -519,6 +614,46 @@ export default function VoiceView({
         .voice-toggle-btn.active .mic-icon,
         .voice-toggle-btn.active .sound-waves {
           filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8));
+        }
+
+        /* Speaking/TTS styles */
+        .speaking-status {
+          color: rgba(52, 211, 153, 0.9) !important;
+          text-shadow: 0 0 20px rgba(52, 211, 153, 0.5) !important;
+        }
+
+        .speaker-indicator {
+          position: absolute;
+          top: -40px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(52, 211, 153, 0.2);
+          border: 1px solid rgba(52, 211, 153, 0.4);
+          color: rgba(52, 211, 153, 1);
+          animation: pulse-speaker 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-speaker {
+          0%, 100% {
+            box-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
+            transform: translateX(-50%) scale(1);
+          }
+          50% {
+            box-shadow: 0 0 25px rgba(52, 211, 153, 0.5);
+            transform: translateX(-50%) scale(1.1);
+          }
+        }
+
+        .orb-inner-speaking {
+          background: radial-gradient(circle, rgba(52, 211, 153, 1), rgba(59, 130, 246, 0.8)) !important;
+          box-shadow: 0 0 10px 3px rgba(52, 211, 153, 0.6),
+                      0 0 20px 6px rgba(59, 130, 246, 0.3) !important;
         }
 
         .transcript-container-above {
@@ -675,6 +810,12 @@ export default function VoiceView({
             width: 44px;
             height: 44px;
           }
+
+          .speaker-indicator {
+            top: -35px;
+            width: 28px;
+            height: 28px;
+          }
         }
 
         /* Very small screens (phones) */
@@ -709,6 +850,12 @@ export default function VoiceView({
           .send-message-btn {
             width: 36px;
             height: 36px;
+          }
+
+          .speaker-indicator {
+            top: -30px;
+            width: 24px;
+            height: 24px;
           }
         }
       `}</style>

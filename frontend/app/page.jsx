@@ -36,6 +36,9 @@ export default function Home() {
   });
   const [showErrorModal, setShowErrorModal] = useState(false);
 
+  // TTS Audio state
+  const [audioUrl, setAudioUrl] = useState(null);
+
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -200,11 +203,21 @@ export default function Home() {
             const payload = JSON.parse(data);
             const delta = payload.choices?.[0]?.delta?.content || "";
             if (delta) {
+              // Check for MEDIA: directive with audio URL
+              const mediaMatch = delta.match(/MEDIA:\s*(https?:\/\/[^\s]+\.(?:mp3|wav|ogg|m4a|webm)[^\s]*)/i);
+              if (mediaMatch) {
+                setAudioUrl(mediaMatch[1]);
+              }
+
               setMessages(prev => {
                 const copy = [...prev];
                 const last = copy[copy.length - 1];
                 if (last.role === "assistant") {
-                  copy[copy.length - 1] = { ...last, content: last.content + delta };
+                  // Filter out MEDIA: lines from displayed content
+                  let filteredDelta = delta.replace(/MEDIA:\s*https?:\/\/[^\s]+/gi, '');
+                  if (filteredDelta) {
+                    copy[copy.length - 1] = { ...last, content: last.content + filteredDelta };
+                  }
                 }
                 return copy;
               });
@@ -310,6 +323,8 @@ export default function Home() {
                 setInput={setInput}
                 sendMessage={sendMessage}
                 sending={sending}
+                audioUrl={audioUrl}
+                setAudioUrl={setAudioUrl}
               />
             </motion.div>
           )}
