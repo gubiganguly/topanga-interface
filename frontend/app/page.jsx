@@ -72,11 +72,10 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Check health on mount
-    checkHealth();
-    // Re-check every 30 seconds
-    const interval = setInterval(checkHealth, 30000);
-    return () => clearInterval(interval);
+    // DISABLED: Gateway health check fails from Vercel (local gateway)
+    // checkHealth();
+    // const interval = setInterval(checkHealth, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -139,12 +138,13 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Only poll history when connected to gateway
-    if (!sessionId || connectionStatus.connected !== true) return;
-
-    refreshHistory();
-    const interval = setInterval(refreshHistory, 5000);
-    return () => clearInterval(interval);
+    // DISABLED: Gateway is local and unreachable from Vercel
+    // History polling will 500 in production
+    // TODO: Re-enable when gateway is publicly accessible
+    // if (!sessionId || connectionStatus.connected !== true) return;
+    // refreshHistory();
+    // const interval = setInterval(refreshHistory, 5000);
+    // return () => clearInterval(interval);
   }, [sessionId, connectionStatus.connected]);
 
   async function sendMessage(e) {
@@ -309,7 +309,7 @@ export default function Home() {
     <div className="app-container">
       <main className="main-content">
         {/* Version indicator */}
-        <div className="version-indicator">v1.0.1</div>
+        <div className="version-indicator">v1.0.2</div>
         
         {/* Header Overlay for Status */}
         <div className="status-overlay">
