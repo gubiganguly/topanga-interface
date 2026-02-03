@@ -387,6 +387,17 @@ export default function VoiceView({
         <MessageSquare size={20} />
       </motion.button>
 
+      {/* Realtime AI Voice button */}
+      <motion.button
+        className="realtime-toggle-btn"
+        onClick={() => setActiveView("realtime")}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        title="AI Voice Chat (WebRTC)"
+      >
+        <span style={{ fontSize: '14px' }}>🎙️</span>
+      </motion.button>
+
       <style jsx>{`
         .voice-view-container {
           width: 100%;
@@ -735,6 +746,31 @@ export default function VoiceView({
           color: white;
           border-color: rgba(139, 92, 246, 0.5);
           box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+
+        .realtime-toggle-btn {
+          position: fixed;
+          bottom: 30px;
+          right: 90px;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background: rgba(15, 15, 25, 0.8);
+          border: 1px solid rgba(6, 182, 212, 0.3);
+          color: rgba(6, 182, 212, 0.8);
+          cursor: pointer;
+          backdrop-filter: blur(20px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 40;
+          transition: all 0.2s;
+        }
+
+        .realtime-toggle-btn:hover {
+          color: rgb(6, 182, 212);
+          border-color: rgba(6, 182, 212, 0.6);
+          box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
         }
 
         /* Mobile/Tablet responsive styles */
