@@ -20,6 +20,7 @@ export async function POST() {
       },
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
+        modalities: ["text", "audio"],
         voice: "coral",
         instructions: `You are Topanga, a helpful AI assistant that can send messages, run commands, and search the web.
 You have access to tools to interact with the user's computer and messaging apps.

@@ -183,12 +183,19 @@ export default function RealtimeView({ setActiveView }) {
 
     try {
       // Get ephemeral token
+      console.log("[Realtime] Fetching ephemeral token...");
       const tokenRes = await fetch("/api/realtime/token", { method: "POST" });
       if (!tokenRes.ok) {
         const err = await tokenRes.json();
         throw new Error(err.error || "Failed to get token");
       }
-      const { value: ephemeralKey } = await tokenRes.json();
+      const tokenData = await tokenRes.json();
+      const ephemeralKey = tokenData.value;
+      console.log("[Realtime] Got ephemeral token, expires:", tokenData.expires_at);
+
+      if (!ephemeralKey) {
+        throw new Error("No ephemeral key in response");
+      }
 
       // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -213,19 +220,50 @@ export default function RealtimeView({ setActiveView }) {
       pc.addTrack(audioTrack, stream);
 
       // Handle incoming audio - create persistent audio element
+      // IMPORTANT: Audio element must be created and configured BEFORE WebRTC connection
       const audioEl = document.createElement("audio");
+      audioEl.id = "realtime-remote-audio";
       audioEl.autoplay = true;
       audioEl.playsInline = true;
+      audioEl.controls = false; // Hidden but functional
+      audioEl.volume = 1.0;
+      // Some browsers need the element in DOM for autoplay
       document.body.appendChild(audioEl);
       remoteAudioRef.current = audioEl;
+      console.log("[Realtime] Audio element created and attached to DOM");
 
       pc.ontrack = (e) => {
         console.log("[Realtime] Received remote audio track", e.streams[0]);
+        console.log("[Realtime] Track info:", e.track.kind, e.track.readyState, e.track.enabled);
         audioEl.srcObject = e.streams[0];
-        // Ensure playback starts (handles autoplay policy)
-        audioEl.play().catch(err => {
-          console.warn("[Realtime] Audio autoplay blocked:", err);
+
+        // Log stream activity
+        e.streams[0].getTracks().forEach(track => {
+          console.log("[Realtime] Stream track:", track.kind, track.readyState, track.enabled);
+          track.onunmute = () => console.log("[Realtime] Track unmuted - audio should play");
+          track.onmute = () => console.log("[Realtime] Track muted");
         });
+
+        // Ensure playback starts (handles autoplay policy)
+        audioEl.play().then(() => {
+          console.log("[Realtime] Audio playback started successfully");
+        }).catch(err => {
+          console.warn("[Realtime] Audio autoplay blocked:", err);
+          // Try playing on next user interaction
+        });
+      };
+
+      // Monitor connection state
+      pc.onconnectionstatechange = () => {
+        console.log("[Realtime] Connection state:", pc.connectionState);
+        if (pc.connectionState === "failed") {
+          setStatus(STATUS.ERROR);
+          setError("Connection failed");
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log("[Realtime] ICE connection state:", pc.iceConnectionState);
       };
 
       // Create data channel for events
@@ -233,34 +271,25 @@ export default function RealtimeView({ setActiveView }) {
       dataChannelRef.current = dc;
 
       dc.onopen = () => {
+        console.log("[Realtime] Data channel opened");
         setStatus(STATUS.CONNECTED);
-
-        // Configure session for audio input/output
-        dc.send(JSON.stringify({
-          type: "session.update",
-          session: {
-            modalities: ["text", "audio"],
-            voice: "alloy",
-            input_audio_format: "pcm16",
-            output_audio_format: "pcm16",
-            input_audio_transcription: {
-              model: "whisper-1"
-            },
-            turn_detection: {
-              type: "server_vad",
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500
-            }
-          }
-        }));
+        // Session is configured server-side via ephemeral token
+        // DO NOT send session.update with modalities - it causes audio output to break
+        // See: https://community.openai.com/t/realtime-api-with-webrtc-issue-when-the-modality-is-updated-to-text-audio-the-audio-output-is-missing/1254337
       };
 
       dc.onmessage = (e) => {
         try {
           const event = JSON.parse(e.data);
+          // Log all events for debugging
+          if (event.type !== "response.audio.delta") {
+            // Don't log audio delta events (too noisy)
+            console.log("[Realtime] Event:", event.type, event);
+          }
           handleServerEvent(event);
-        } catch {}
+        } catch (err) {
+          console.error("[Realtime] Failed to parse event:", err, e.data);
+        }
       };
 
       dc.onerror = () => {
@@ -269,10 +298,13 @@ export default function RealtimeView({ setActiveView }) {
       };
 
       // Create offer
+      console.log("[Realtime] Creating SDP offer...");
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      console.log("[Realtime] Local description set");
 
       // Send offer to OpenAI
+      console.log("[Realtime] Sending offer to OpenAI...");
       const sdpResponse = await fetch(
         "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
         {
@@ -286,11 +318,15 @@ export default function RealtimeView({ setActiveView }) {
       );
 
       if (!sdpResponse.ok) {
-        throw new Error("Failed to establish WebRTC connection");
+        const errText = await sdpResponse.text();
+        console.error("[Realtime] SDP response error:", sdpResponse.status, errText);
+        throw new Error(`Failed to establish WebRTC connection: ${sdpResponse.status}`);
       }
 
       const answerSdp = await sdpResponse.text();
+      console.log("[Realtime] Got SDP answer, setting remote description...");
       await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+      console.log("[Realtime] Remote description set - WebRTC connection established");
 
     } catch (err) {
       setStatus(STATUS.ERROR);
@@ -302,37 +338,71 @@ export default function RealtimeView({ setActiveView }) {
   // Handle server events
   const handleServerEvent = useCallback((event) => {
     switch (event.type) {
+      case "session.created":
+        console.log("[Realtime] Session created:", event.session?.id);
+        break;
+
+      case "session.updated":
+        console.log("[Realtime] Session updated:", event.session?.modalities);
+        break;
+
       case "input_audio_buffer.speech_started":
+        console.log("[Realtime] User started speaking");
         setStatus(STATUS.LISTENING);
         break;
 
       case "input_audio_buffer.speech_stopped":
+        console.log("[Realtime] User stopped speaking");
         setStatus(STATUS.CONNECTED);
         break;
 
-      case "response.audio.started":
-      case "response.audio_transcript.delta":
-        setStatus(STATUS.SPEAKING);
+      case "response.created":
+        console.log("[Realtime] Response created:", event.response?.id);
+        break;
+
+      case "response.output_item.added":
+        console.log("[Realtime] Output item added:", event.item?.type);
+        break;
+
+      case "response.audio.delta":
+        // Audio data is being streamed - this means AI is speaking
+        // WebRTC handles playback automatically, we just track state
+        if (status !== STATUS.SPEAKING) {
+          setStatus(STATUS.SPEAKING);
+        }
         break;
 
       case "response.audio.done":
+        console.log("[Realtime] Audio response complete");
+        setStatus(STATUS.CONNECTED);
+        break;
+
+      case "response.audio_transcript.delta":
+        // Transcript being generated
+        setStatus(STATUS.SPEAKING);
+        break;
+
       case "response.done":
+        console.log("[Realtime] Response done:", event.response?.status);
         setStatus(STATUS.CONNECTED);
         break;
 
       case "conversation.item.input_audio_transcription.completed":
+        console.log("[Realtime] User transcript:", event.transcript);
         if (event.transcript) {
           setTranscript(prev => [...prev, { role: "user", text: event.transcript }]);
         }
         break;
 
       case "response.audio_transcript.done":
+        console.log("[Realtime] AI transcript:", event.transcript);
         if (event.transcript) {
           setTranscript(prev => [...prev, { role: "assistant", text: event.transcript }]);
         }
         break;
 
       case "response.function_call_arguments.done":
+        console.log("[Realtime] Tool call:", event.name);
         handleToolCall({
           name: event.name,
           call_id: event.call_id,
@@ -341,10 +411,21 @@ export default function RealtimeView({ setActiveView }) {
         break;
 
       case "error":
+        console.error("[Realtime] Error event:", event.error);
         setError(event.error?.message || "Unknown error");
         break;
+
+      case "rate_limits.updated":
+        // Ignore rate limit updates
+        break;
+
+      default:
+        // Log any unhandled events
+        if (!event.type.includes(".delta")) {
+          console.log("[Realtime] Unhandled event:", event.type);
+        }
     }
-  }, [handleToolCall]);
+  }, [handleToolCall, status]);
 
   // Disconnect
   const disconnect = useCallback(() => {
