@@ -140,6 +140,12 @@ export default function RealtimeView({ setActiveView }) {
       case "search_web":
         action = "search.web";
         break;
+      case "write_file":
+        action = "file.write";
+        break;
+      case "read_file":
+        action = "file.read";
+        break;
       default:
         result = { error: `Unknown tool: ${name}` };
     }

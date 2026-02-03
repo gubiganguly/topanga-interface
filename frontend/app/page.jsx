@@ -309,7 +309,7 @@ export default function Home() {
     <div className="app-container">
       <main className="main-content">
         {/* Version indicator */}
-        <div className="version-indicator">v1.0.4</div>
+        <div className="version-indicator">v1.0.5</div>
         
         {/* Header Overlay for Status */}
         <div className="status-overlay">

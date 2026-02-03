@@ -79,6 +79,40 @@ Keep responses concise since this is a voice interface.`,
               },
               required: ["query"]
             }
+          },
+          {
+            type: "function",
+            name: "write_file",
+            description: "Write content to a file on the user's computer. Creates the file if it doesn't exist, overwrites if it does.",
+            parameters: {
+              type: "object",
+              properties: {
+                path: {
+                  type: "string",
+                  description: "Path to the file to write (relative or absolute)"
+                },
+                content: {
+                  type: "string",
+                  description: "Content to write to the file"
+                }
+              },
+              required: ["path", "content"]
+            }
+          },
+          {
+            type: "function",
+            name: "read_file",
+            description: "Read the contents of a file on the user's computer",
+            parameters: {
+              type: "object",
+              properties: {
+                path: {
+                  type: "string",
+                  description: "Path to the file to read (relative or absolute)"
+                }
+              },
+              required: ["path"]
+            }
           }
         ],
         input_audio_transcription: {
